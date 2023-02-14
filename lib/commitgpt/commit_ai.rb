@@ -35,7 +35,7 @@ module CommitGpt
                "commit message. Do not preface the commit with anything, use the present tense, return a complete sentence, " \
                "and do not repeat yourself: #{diff}"
 
-      puts "▲    Generating your AI commit message...\n".gray
+      puts "▲   Generating your AI commit message...\n".gray
       ai_commit_message = generate_commit(prompt)
       return nil if ai_commit_message.nil?
 
@@ -61,7 +61,7 @@ module CommitGpt
     end
 
     def welcome
-      puts "\n▲  Welcome to AI Commits!".green
+      puts "\n▲ Welcome to AI Commits!".green
 
       if OPENAI_API_KEY.nil?
         puts "▲ Please save your OpenAI API key as an env variable by doing 'export OPENAI_API_KEY=YOUR_API_KEY'".red
@@ -90,7 +90,7 @@ module CommitGpt
                                             "Content-Type" => "application/json", "User-Agent" => "Ruby/#{RUBY_VERSION}" },
                                  body: payload.to_json)
 
-        puts response.inspect
+        puts "#{response.inspect}\n"
 
         ai_commit = response["choices"][0]["text"]
       rescue StandardError

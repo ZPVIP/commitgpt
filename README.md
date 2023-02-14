@@ -26,6 +26,15 @@ It's recommended to add the first line to your `.zshrc` or `.bashrc` so it persi
 $ cd /path/to/your/repo
 $ git add .
 $ aicm
+
+▲ Welcome to AI Commits!
+▲   Generating your AI commit message...
+
+▲ Commit message: git commit -am "Update README.md with contribution instructions and OpenAI API key instructions."
+
+▲ Do you want to commit this message? [y/n]
+[main c082637] Update README.md with contribution instructions and OpenAI API key instructions.
+ 4 files changed, 24 insertions(+), 19 deletions(-)
 ```
 
 ## Special Thanks
