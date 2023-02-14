@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     commitgpt (0.1.0)
-      httparty (>= 0.18.1)
+      httparty (~> 0.18)
 
 GEM
   remote: https://rubygems.org/

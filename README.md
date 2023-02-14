@@ -1,8 +1,11 @@
-# Commit GPT
+<div align="center">
+  <div>
+    <h1 align="center">Commit GPT</h1>
+  </div>
+	<p>A CLI that writes your git commit messages for you with AI. Never write a commit message again.</p>
+</div>
 
-Welcome to your Commit GPT! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/commitgpt`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+---
 
 ## Installation
 ```bash
@@ -10,22 +13,23 @@ $ gem install commitgpt
 ```
 
 ## Usage
+### API key
+grab your [OpenAI key](https://openai.com/api/) and add it as an env variable.
 ```bash
-$ export OPENAI_KEY=sk-xxxxxxxxxxxxxxxx
+$ export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
+```
+It's recommended to add the first line to your `.zshrc` or `.bashrc` so it persists instead of having to define it in each terminal session.
+    
+### aicm
+`aicm` is an abbreviation for `AI commits`, after `git add .` add your file to stage, then use `aicm` to commit with an AI generated commit message.
+```bash
 $ cd /path/to/your/repo
 $ git add .
 $ aicm
 ```
-It's recommended to add the first line to your `.zshrc` or `.bashrc` so it persists instead of having to define it in each terminal session.
-
-## Development
-
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
 ## Special Thanks
-I used chatGPT to convert `AICommits` to `CommitGPT`. Thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)   
+I used chatGPT to convert `AICommits`(JS) to `CommitGPT`(Ruby). Thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)   
 
 ## How it works
 This CLI tool runs a git diff command to grab all the latest changes, sends this to OpenAI's GPT-3, then returns the AI generated commit message. I also want to note that it does cost money since GPT-3 generations aren't free. However, OpenAI gives folks $18 of free credits and commit message generations are cheap so it should be free for a long time.
@@ -36,7 +40,7 @@ The generated commit message can't be edited yet, but you can choose `n` and cop
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/ZPVIP/commitgpt. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/commitgpt/blob/master/CODE_OF_CONDUCT.md).
+Bug reports and pull requests are welcome on GitHub at https://github.com/ZPVIP/commitgpt. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/ZPVIP/commitgpt/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
