@@ -3,6 +3,7 @@ PATH
   specs:
     commitgpt (0.1.0)
       httparty (~> 0.18)
+      thor (~> 1.2)
 
 GEM
   remote: https://rubygems.org/
