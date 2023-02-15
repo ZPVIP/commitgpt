@@ -14,7 +14,7 @@ $ gem install commitgpt
 
 ## Usage
 ### API key
-grab your [OpenAI key](https://openai.com/api/) and add it as an env variable.
+Grab your [OpenAI key](https://openai.com/api/) and add it as an env variable.
 ```bash
 $ export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
 ```
@@ -36,9 +36,17 @@ $ aicm
 [main c082637] Update README.md with contribution instructions and OpenAI API key instructions.
  4 files changed, 24 insertions(+), 19 deletions(-)
 ```
+     
+### Update
+The latest version of the gem is `0.1.2`. To update, run the following commands:
+```bash
+$ gem update commitgpt
+$ gem cleanup commitgpt
+$ gem info commitgpt
+```
 
 ## Special Thanks
-I used chatGPT to convert `AICommits`(JS) to `CommitGPT`(Ruby). Thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)   
+I used ChatGPT to convert `AICommits` from TypeScript to Ruby. Special thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)   
 
 ## How it works
 This CLI tool runs a git diff command to grab all the latest changes, sends this to OpenAI's GPT-3, then returns the AI generated commit message. I also want to note that it does cost money since GPT-3 generations aren't free. However, OpenAI gives folks $18 of free credits and commit message generations are cheap so it should be free for a long time.
