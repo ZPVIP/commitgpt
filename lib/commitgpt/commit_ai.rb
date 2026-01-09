@@ -104,7 +104,6 @@ module CommitGpt
           role: "system",
           content: "Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body. " \
                    "Message language: English. Rules:\n" \
-                   "- Use present tense (e.g., 'Add feature' not 'Added feature')\n" \
                    "- Commit message must be a maximum of 100 characters.\n" \
                    "- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.\n" \
                    "- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text. \n" \
@@ -121,7 +120,8 @@ module CommitGpt
         model: AICM_MODEL,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 200
+        max_tokens: 300,
+        disable_reasoning: true
       }
 
       begin
@@ -135,9 +135,22 @@ module CommitGpt
                                  headers: headers,
                                  body: payload.to_json)
 
-        ai_commit = response["choices"][0]["message"]["content"]
-      rescue StandardError
-        puts "▲ There was an error with the OpenAI API. Please try again later.".red
+        # Check for API error response
+        if response["error"]
+          puts "▲ API Error: #{response['error']['message']}".red
+          return nil
+        end
+
+        message = response.dig("choices", 0, "message")
+        # Some models (like zai-glm) use 'reasoning' instead of 'content'
+        ai_commit = message&.dig("content") || message&.dig("reasoning")
+        if ai_commit.nil?
+          puts "▲ Unexpected API response format:".red
+          puts response.inspect
+          return nil
+        end
+      rescue StandardError => e
+        puts "▲ Error: #{e.message}".red
         return nil
       end
 
