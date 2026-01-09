@@ -5,6 +5,9 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in commitgpt.gemspec
 gemspec
 
+gem "base64"
+gem "bigdecimal"
+gem "csv"
 gem "httparty"
 
 gem "rake", "~> 13.0"

@@ -9,8 +9,14 @@ module CommitGpt
     default_task :aicm
 
     desc "aicm", "AI commits for you!"
+    method_option :models, aliases: "-m", type: :boolean, desc: "List available models"
+    method_option :verbose, aliases: "-v", type: :boolean, desc: "Show git diff being sent to AI"
     def aicm
-      CommitGpt::CommitAi.new.aicm
+      if options[:models]
+        CommitGpt::CommitAi.new.list_models
+      else
+        CommitGpt::CommitAi.new.aicm(verbose: options[:verbose])
+      end
     end
   end
 end
