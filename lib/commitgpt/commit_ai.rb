@@ -9,12 +9,37 @@ require_relative "string"
 module CommitGpt
   # Commit AI roboter based on GPT-3
   class CommitAi
-    OPENAI_API_KEY = ENV.fetch("OPENAI_API_KEY", nil)
-    def aicm
+    AICM_KEY = ENV.fetch("AICM_KEY", nil)
+    AICM_LINK = ENV.fetch("AICM_LINK", "https://api.openai.com/v1")
+    AICM_DIFF_LEN = ENV.fetch("AICM_DIFF_LEN", "32768").to_i
+    AICM_MODEL = ENV.fetch("AICM_MODEL", "gpt-4o-mini")
+
+    def aicm(verbose: false)
       exit(1) unless welcome
       diff = git_diff || exit(1)
+      if verbose
+        puts "▲ Git diff (#{diff.length} chars):".cyan
+        puts diff
+        puts "\n"
+      end
       ai_commit_message = message(diff) || exit(1)
       puts `git commit -m "#{ai_commit_message}" && echo && echo && git log -1 && echo` if confirmed
+    end
+
+    def list_models
+      headers = {
+        "Content-Type" => "application/json",
+        "User-Agent" => "Ruby/#{RUBY_VERSION}"
+      }
+      headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+
+      begin
+        response = HTTParty.get("#{AICM_LINK}/models", headers: headers)
+        models = response["data"] || []
+        models.each { |m| puts m["id"] }
+      rescue StandardError => e
+        puts "▲ Failed to list models: #{e.message}".red
+      end
     end
 
     private
@@ -31,12 +56,8 @@ module CommitGpt
     end
 
     def message(diff = nil)
-      prompt = "I want you to act like a git commit message writer. I will input a git diff and your job is to convert it into a useful " \
-               "commit message. Do not preface the commit with anything, use the present tense, return a complete sentence, " \
-               "and do not repeat yourself: #{diff}"
-
       puts "▲   Generating your AI commit message...\n".gray
-      ai_commit_message = generate_commit(prompt)
+      ai_commit_message = generate_commit(diff)
       return nil if ai_commit_message.nil?
 
       puts "#{"▲ Commit message: ".green}git commit -am \"#{ai_commit_message}\"\n\n"
@@ -51,9 +72,8 @@ module CommitGpt
         return nil
       end
 
-      # Accounting for GPT-3's input req of 4k tokens (approx 8k chars)
-      if diff.length > 8000
-        puts "▲ The diff is too large to write a commit message.".red
+      if diff.length > AICM_DIFF_LEN
+        puts "▲ The diff is too large (#{diff.length} chars, max #{AICM_DIFF_LEN}). Set AICM_DIFF_LEN to increase limit.".red
         return nil
       end
 
@@ -63,8 +83,8 @@ module CommitGpt
     def welcome
       puts "\n▲ Welcome to AI Commits!".green
 
-      if OPENAI_API_KEY.nil?
-        puts "▲ Please save your OpenAI API key as an env variable by doing 'export OPENAI_API_KEY=YOUR_API_KEY'".red
+      if AICM_KEY.nil? && AICM_LINK == "https://api.openai.com/v1"
+        puts "▲ Please save your API key as an env variable by doing 'export AICM_KEY=YOUR_API_KEY'".red
         return false
       end
 
@@ -78,27 +98,50 @@ module CommitGpt
       true
     end
 
-    def generate_commit(prompt = "")
+    def generate_commit(diff = "")
+      messages = [
+        {
+          role: "system",
+          content: "Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body. " \
+                   "Message language: English. Rules:\n" \
+                   "- Use present tense (e.g., 'Add feature' not 'Added feature')\n" \
+                   "- Commit message must be a maximum of 100 characters.\n" \
+                   "- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.\n" \
+                   "- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text. \n" \
+                   "- Be specific: include concrete details (package names, versions, functionality) rather than generic statements. \n" \
+                   "- Return ONLY the commit message, nothing else."
+        },
+        {
+          role: "user",
+          content: "Generate a commit message for the following git diff:\n\n#{diff}"
+        }
+      ]
+
       payload = {
-        model: "text-davinci-003", prompt: prompt, temperature: 0.7, top_p: 1,
-        frequency_penalty: 0, presence_penalty: 0, max_tokens: 200, stream: false, n: 1
+        model: AICM_MODEL,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 200
       }
 
       begin
-        response = HTTParty.post("https://api.openai.com/v1/completions",
-                                 headers: { "Authorization" => "Bearer #{OPENAI_API_KEY}",
-                                            "Content-Type" => "application/json", "User-Agent" => "Ruby/#{RUBY_VERSION}" },
+        headers = {
+          "Content-Type" => "application/json",
+          "User-Agent" => "Ruby/#{RUBY_VERSION}"
+        }
+        headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+
+        response = HTTParty.post("#{AICM_LINK}/chat/completions",
+                                 headers: headers,
                                  body: payload.to_json)
 
-        puts "#{response.inspect}\n"
-
-        ai_commit = response["choices"][0]["text"]
+        ai_commit = response["choices"][0]["message"]["content"]
       rescue StandardError
         puts "▲ There was an error with the OpenAI API. Please try again later.".red
         return nil
       end
 
-      ai_commit.gsub(/(\r\n|\n|\r)/, "")
+      ai_commit.gsub(/(\r\n|\n|\r)/, "").gsub(/\A["']|["']\z/, "")
     end
   end
 end
