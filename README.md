@@ -8,8 +8,71 @@
 ---
 
 ## Installation
+
+### Prerequisites: Install Ruby
+
+If you don't have Ruby installed, follow these steps first.
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+**1. Install Homebrew** (skip if already installed)
+
 ```bash
-$ gem install commitgpt
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**2. Install Ruby dependencies**
+
+```bash
+brew install openssl@3 libyaml gmp rust
+```
+
+</details>
+
+<details>
+<summary><strong>Ubuntu / Debian</strong></summary>
+
+**Install Ruby dependencies**
+
+```bash
+sudo apt-get update
+sudo apt install build-essential rustc libssl-dev libyaml-dev zlib1g-dev libgmp-dev
+```
+
+</details>
+
+**Install Ruby with Mise** (version manager)
+
+```bash
+# Install Mise
+curl https://mise.run | sh
+
+# For zsh (macOS default)
+echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.zshrc
+source ~/.zshrc
+
+# For bash (Ubuntu default)
+# echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.bashrc
+# source ~/.bashrc
+
+# Install Ruby
+mise use --global ruby@3
+
+# Verify installation
+ruby --version
+#=> 3.4.7
+
+# Update RubyGems
+gem update --system
+```
+
+### Install CommitGPT
+
+```bash
+gem install commitgpt
 ```
 
 ## Usage
@@ -25,6 +88,9 @@ It's recommended to add this to your `.zshrc` or `.bashrc` so it persists across
 ### Custom API Endpoint (Optional)
 You can use any OpenAI-compatible API provider by setting `AICM_LINK`:
 ```bash
+# Default
+$ export AICM_LINK=https://api.openai.com/v1
+
 # Use a local proxy
 $ export AICM_LINK=http://127.0.0.1:8045/v1
 
@@ -95,16 +161,15 @@ gpt-5-nano
 gpt-4o-mini
 ```
 
-**Cerebras** ([https://api.cerebras.ai/v1](https://cloud.cerebras.ai))
+**Cerebras** ([https://api.cerebras.ai/v1](https://cloud.cerebras.ai)) ⭐ Recommended
 ```
+zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
 zai-glm-4.6
-zai-glm-4.7
 gpt-oss-120b
 llama3.1-8b
 llama-3.3-70b
 qwen-3-32b
 qwen-3-235b-a22b-instruct-2507
-
 ```
 
 **Groq** ([https://api.groq.com/openai/v1](https://console.groq.com))
