@@ -75,122 +75,90 @@ gem update --system
 gem install commitgpt
 ```
 
+## Configuration
+
+CommitGPT uses a YAML configuration system (`~/.config/commitgpt/`) to support multiple providers and per-provider settings.
+
+### Interactive Setup (Recommended)
+Run the setup wizard to configure your provider:
+```bash
+$ aicm setup
+```
+
+You'll be guided to:
+1. Choose an AI provider (Presets: Cerebras, OpenAI, Ollama, Groq, etc.)
+2. Enter your API Key (stored securely in `config.local.yml`)
+3. Select a model interactively
+4. Set maximum diff length
+
+**Note:** Please add `~/.config/commitgpt/config.local.yml` to your `.gitignore` if you are syncing your home directory, as it contains your API keys.
+
+---
+
 ## Usage
 
-### API Key
-Grab your API key and add it as an env variable.
+### Generate Commit Message
+Stage your changes and run `aicm`:
 ```bash
-$ export AICM_KEY=sk-xxxxxxxxxxxxxxxx
-```
-
-It's recommended to add this to your `.zshrc` or `.bashrc` so it persists across terminal sessions.
-
-### Custom API Endpoint (Optional)
-You can use any OpenAI-compatible API provider by setting `AICM_LINK`:
-```bash
-# Default
-$ export AICM_LINK=https://api.openai.com/v1
-
-# Use a local proxy
-$ export AICM_LINK=http://127.0.0.1:8045/v1
-
-# Or use another provider
-# Cerebras
-$ export AICM_LINK=https://api.cerebras.ai/v1
-
-# Groq
-$ export AICM_LINK=https://api.groq.com/openai/v1
-```
-
-> **Note**: If you're using a local proxy that doesn't require authentication, you can leave `AICM_KEY` empty.
-
-### List Models
-Use `-m` to list all available models from your API provider:
-```bash
-$ aicm -m
-llama3.1-8b
-llama-3.3-70b
-gpt-4o-mini
-```
-
-### aicm
-`aicm` is an abbreviation for `AI commits`. After staging your changes with `git add .`, use `aicm` to commit with an AI-generated message.
-```bash
-$ cd /path/to/your/repo
 $ git add .
 $ aicm
+```
 
-▲ Welcome to AI Commits!
-▲   Generating your AI commit message...
+### Switch Provider
+Switch between configured providers easily:
+```bash
+$ aicm -p
+# or
+$ aicm --provider
+```
 
-▲ Commit message: git commit -am "Update README.md with contribution instructions and OpenAI API key instructions."
+### Select Model
+Interactively list and select a model for your current provider:
+```bash
+$ aicm -m
+# or
+$ aicm --models
+```
 
-▲ Do you want to commit this message? [y/n]
-[main c082637] Update README.md with contribution instructions and OpenAI API key instructions.
- 4 files changed, 24 insertions(+), 19 deletions(-)
+### Check Configuration
+View your current configuration (Provider, Model, Base URL, Diff Len):
+```bash
+$ aicm help
+```
+
+### View Git Diff
+Preview the diff that will be sent to the AI:
+```bash
+$ aicm -v
 ```
 
 ### Update
 To update to the latest version:
 ```bash
 $ gem update commitgpt
-$ gem cleanup commitgpt
-$ gem info commitgpt
 ```
 
-## Configuration
+---
 
-| Environment Variable | Required | Default | Description |
-|---------------------|----------|---------|-------------|
-| `AICM_KEY` | No* | `nil` | Your API key. Required when using official OpenAI API. |
-| `AICM_LINK` | No | `https://api.openai.com/v1` | Custom API endpoint for OpenAI-compatible services. |
-| `AICM_MODEL` | Yes | `gpt-4o-mini` | Model to use for generating commit messages. |
-| `AICM_DIFF_LEN` | No | `32768` | Maximum diff length in characters. Increase if you have large diffs. |
+### Supported Providers
+We support any OpenAI-compatible API. Presets available for:
+- **Cerebras** (Fast & Recommended)
+- **OpenAI** (Official)
+- **Ollama** (Local)
+- **Groq**
+- **DeepSeek**
+- **Anthropic (Claude)**
+- **Google AI (Gemini)**
+- **Mistral**
+- **OpenRouter**
+- **Local setups** (LM Studio, LLaMa.cpp, Llamafile)
 
-\* Required when using the default OpenAI endpoint.
-
-### Available Models
-
-Use `aicm -m` to list models from your provider, or set `AICM_MODEL` directly:
-
-**OpenAI** ([https://api.openai.com/v1](https://platform.openai.com))
-```
-gpt-5.2 
-gpt-5-mini 
-gpt-5-nano 
-gpt-4o-mini
-```
-
-**Cerebras** ([https://api.cerebras.ai/v1](https://cloud.cerebras.ai)) ⭐ Recommended
-```
-zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
-zai-glm-4.6
-gpt-oss-120b
-llama3.1-8b
-llama-3.3-70b
-qwen-3-32b
-qwen-3-235b-a22b-instruct-2507
-```
-
-**Groq** ([https://api.groq.com/openai/v1](https://console.groq.com))
-```
-llama-3.3-70b-versatile
-llama-3.1-8b-instant
-meta-llama/llama-4-maverick-17b-128e-instruct
-meta-llama/llama-4-scout-17b-16e-instruct
-qwen/qwen3-32b
-moonshotai/kimi-k2-instruct-0905
-openai/gpt-oss-120b
-groq/compound
-groq/compound-mini
-```
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts for generating conventional commit messages.
 
 ## Limitations
-- Only supports git diffs up to `AICM_DIFF_LEN` characters (default 32K)
-- The generated commit message can't be edited interactively, but you can choose `n` and copy the command to edit manually
+- The generated commit message can't be edited interactively, but you can choose `n` and copy the command to edit manually.
 
 ## Special Thanks
 I used ChatGPT to convert `AICommits` from TypeScript to Ruby. Special thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)
