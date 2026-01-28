@@ -153,6 +153,40 @@ We support any OpenAI-compatible API. Presets available for:
 - **OpenRouter**
 - **Local setups** (LM Studio, LLaMa.cpp, Llamafile)
 
+### Recommended Providers
+
+**OpenAI** ([https://api.openai.com/v1](https://platform.openai.com))
+```
+gpt-5.2 
+gpt-5-mini 
+gpt-5-nano 
+gpt-4o-mini
+```
+
+**Cerebras** ([https://api.cerebras.ai/v1](https://cloud.cerebras.ai)) ⭐ Recommended
+```
+zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
+zai-glm-4.6
+gpt-oss-120b
+llama3.1-8b
+llama-3.3-70b
+qwen-3-32b
+qwen-3-235b-a22b-instruct-2507
+```
+
+**Groq** ([https://api.groq.com/openai/v1](https://console.groq.com))
+```
+llama-3.3-70b-versatile
+llama-3.1-8b-instant
+meta-llama/llama-4-maverick-17b-128e-instruct
+meta-llama/llama-4-scout-17b-16e-instruct
+qwen/qwen3-32b
+moonshotai/kimi-k2-instruct-0905
+openai/gpt-oss-120b
+groq/compound
+groq/compound-mini
+```
+
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts for generating conventional commit messages.
