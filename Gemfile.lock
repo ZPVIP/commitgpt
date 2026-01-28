@@ -1,36 +1,43 @@
 PATH
   remote: .
   specs:
-    commitgpt (0.3.0)
-      httparty (~> 0.18)
-      thor (~> 1.2)
+    commitgpt (0.3.2)
+      httparty (~> 0.24)
+      thor (~> 1.4)
       tty-prompt (~> 0.23)
 
 GEM
   remote: https://rubygems.org/
   specs:
-    ast (2.4.2)
+    ast (2.4.3)
     base64 (0.3.0)
     bigdecimal (4.0.1)
-    csv (3.3.5)
-    base64 (0.3.0)
-    bigdecimal (4.0.1)
+    bundler-audit (0.9.3)
+      bundler (>= 1.2.0)
+      thor (~> 1.0)
     csv (3.3.5)
     diff-lcs (1.5.0)
-    httparty (0.21.0)
+    httparty (0.24.2)
+      csv
       mini_mime (>= 1.0.0)
       multi_xml (>= 0.5.2)
-    mini_mime (1.1.2)
-    multi_xml (0.6.0)
-    parallel (1.22.1)
-    parser (3.1.2.0)
+    json (2.18.0)
+    language_server-protocol (3.17.0.5)
+    lint_roller (1.1.0)
+    mini_mime (1.1.5)
+    multi_xml (0.8.1)
+      bigdecimal (>= 3.1, < 5)
+    parallel (1.27.0)
+    parser (3.3.10.1)
       ast (~> 2.4.1)
+      racc
     pastel (0.8.0)
       tty-color (~> 0.5)
+    prism (1.9.0)
+    racc (1.8.1)
     rainbow (3.1.1)
     rake (13.0.6)
-    regexp_parser (2.6.1)
-    rexml (3.2.5)
+    regexp_parser (2.11.3)
     rspec (3.12.0)
       rspec-core (~> 3.12.0)
       rspec-expectations (~> 3.12.0)
@@ -44,19 +51,22 @@ GEM
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.12.0)
     rspec-support (3.12.0)
-    rubocop (1.29.1)
+    rubocop (1.84.0)
+      json (~> 2.3)
+      language_server-protocol (~> 3.17.0.2)
+      lint_roller (~> 1.1.0)
       parallel (~> 1.10)
-      parser (>= 3.1.0.0)
+      parser (>= 3.3.0.2)
       rainbow (>= 2.2.2, < 4.0)
-      regexp_parser (>= 1.8, < 3.0)
-      rexml (>= 3.2.5, < 4.0)
-      rubocop-ast (>= 1.17.0, < 2.0)
+      regexp_parser (>= 2.9.3, < 3.0)
+      rubocop-ast (>= 1.49.0, < 2.0)
       ruby-progressbar (~> 1.7)
-      unicode-display_width (>= 1.4.0, < 3.0)
-    rubocop-ast (1.17.0)
-      parser (>= 3.1.1.0)
-    ruby-progressbar (1.11.0)
-    thor (1.2.1)
+      unicode-display_width (>= 2.4.0, < 4.0)
+    rubocop-ast (1.49.0)
+      parser (>= 3.3.7.2)
+      prism (~> 1.7)
+    ruby-progressbar (1.13.0)
+    thor (1.5.0)
     tty-color (0.6.0)
     tty-cursor (0.7.1)
     tty-prompt (0.23.1)
@@ -67,7 +77,9 @@ GEM
       tty-screen (~> 0.8)
       wisper (~> 2.0)
     tty-screen (0.8.2)
-    unicode-display_width (1.8.0)
+    unicode-display_width (3.2.0)
+      unicode-emoji (~> 4.1)
+    unicode-emoji (4.2.0)
     wisper (2.0.1)
 
 PLATFORMS
@@ -79,15 +91,13 @@ PLATFORMS
 DEPENDENCIES
   base64
   bigdecimal
-  base64
-  bigdecimal
+  bundler-audit
   commitgpt!
-  csv
   csv
   httparty
   rake (~> 13.0)
   rspec (~> 3.0)
-  rubocop (~> 1.21)
+  rubocop
   thor
 
 BUNDLED WITH

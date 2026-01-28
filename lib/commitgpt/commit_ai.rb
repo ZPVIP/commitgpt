@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "httparty"
-require "net/http"
-require "uri"
-require "json"
-require "io/console"
-require "tty-prompt"
-require_relative "string"
-require_relative "config_manager"
+require 'httparty'
+require 'net/http'
+require 'uri'
+require 'json'
+require 'io/console'
+require 'tty-prompt'
+require_relative 'string'
+require_relative 'config_manager'
 
 # CommitGpt based on GPT-3
 module CommitGpt
@@ -17,17 +17,17 @@ module CommitGpt
 
     def initialize
       provider_config = ConfigManager.get_active_provider_config
-      
+
       if provider_config
-        @api_key = provider_config["api_key"]
-        @base_url = provider_config["base_url"]
-        @model = provider_config["model"]
-        @diff_len = provider_config["diff_len"] || 32768
+        @api_key = provider_config['api_key']
+        @base_url = provider_config['base_url']
+        @model = provider_config['model']
+        @diff_len = provider_config['diff_len'] || 32_768
       else
         @api_key = nil
         @base_url = nil
         @model = nil
-        @diff_len = 32768
+        @diff_len = 32_768
       end
     end
 
@@ -57,18 +57,18 @@ module CommitGpt
           next
         when :edit
           prompt = TTY::Prompt.new
-          new_message = prompt.ask("Enter your commit message:")
+          new_message = prompt.ask('Enter your commit message:')
           if new_message && !new_message.strip.empty?
              commit_command = "git commit -m \"#{new_message}\""
              system(commit_command)
              puts "\n"
              puts `git log -1`
           else
-             puts "▲ Commit aborted (empty message).".red
+             puts '▲ Commit aborted (empty message).'.red
           end
           break
         when :exit
-          puts "▲ Exit without commit.".yellow
+          puts '▲ Exit without commit.'.yellow
           break
         end
       end
@@ -76,15 +76,15 @@ module CommitGpt
 
     def list_models
       headers = {
-        "Content-Type" => "application/json",
-        "User-Agent" => "Ruby/#{RUBY_VERSION}"
+        'Content-Type' => 'application/json',
+        'User-Agent' => "Ruby/#{RUBY_VERSION}"
       }
-      headers["Authorization"] = "Bearer #{@api_key}" if @api_key
+      headers['Authorization'] = "Bearer #{@api_key}" if @api_key
 
       begin
         response = HTTParty.get("#{@base_url}/models", headers: headers)
-        models = response["data"] || []
-        models.each { |m| puts m["id"] }
+        models = response['data'] || []
+        models.each { |m| puts m['id'] }
       rescue StandardError => e
         puts "▲ Failed to list models: #{e.message}".red
       end
@@ -92,15 +92,15 @@ module CommitGpt
 
     def list_models
       headers = {
-        "Content-Type" => "application/json",
-        "User-Agent" => "Ruby/#{RUBY_VERSION}"
+        'Content-Type' => 'application/json',
+        'User-Agent' => "Ruby/#{RUBY_VERSION}"
       }
-      headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+      headers['Authorization'] = "Bearer #{AICM_KEY}" if AICM_KEY
 
       begin
         response = HTTParty.get("#{AICM_LINK}/models", headers: headers)
-        models = response["data"] || []
-        models.each { |m| puts m["id"] }
+        models = response['data'] || []
+        models.each { |m| puts m['id'] }
       rescue StandardError => e
         puts "▲ Failed to list models: #{e.message}".red
       end
@@ -108,15 +108,15 @@ module CommitGpt
 
     private
 
-    def confirm_commit(message)
+    def confirm_commit(_message)
       prompt = TTY::Prompt.new
-      
+
       begin
-        prompt.select("Action:") do |menu|
-          menu.choice "Commit", :commit
-          menu.choice "Regenerate", :regenerate
-          menu.choice "Edit", :edit
-          menu.choice "Exit without commit", :exit
+        prompt.select('Action:') do |menu|
+          menu.choice 'Commit', :commit
+          menu.choice 'Regenerate', :regenerate
+          menu.choice 'Edit', :edit
+          menu.choice 'Exit without commit', :exit
         end
       rescue TTY::Reader::InputInterrupt, Interrupt
         :exit
@@ -133,47 +133,47 @@ module CommitGpt
       diff_unstaged = `git diff . #{exclusions}`.chomp
 
       if !diff_unstaged.empty?
-        if !diff_cached.empty?
-          # Scenario: Mixed state (some staged, some not)
-          puts "▲ You have both staged and unstaged changes:".yellow
-          
-          staged_files = `git diff --cached --name-status . #{exclusions}`.chomp
-          unstaged_files = `git diff --name-status . #{exclusions}`.chomp
-
-          puts "\n  #{'Staged changes:'.green}"
-          puts staged_files.gsub(/^/, "    ")
-
-          puts "\n  #{'Unstaged changes:'.red}"
-          puts unstaged_files.gsub(/^/, "    ")
-          puts ""
-
-          prompt = TTY::Prompt.new
-          choice = prompt.select("How to proceed?") do |menu|
-             menu.choice "Include unstaged changes (git add .)", :add_all
-             menu.choice "Use staged changes only", :staged_only
-             menu.choice "Exit", :exit
-          end
-
-          case choice
-          when :add_all
-            puts "▲ Running git add .".yellow
-            system("git add .")
-            diff_cached = `git diff --cached . #{exclusions}`.chomp
-          when :exit
-            return nil
-          end
-        else
+        if diff_cached.empty?
           # Scenario: Only unstaged changes
           choice = prompt_no_staged_changes
           case choice
           when :add_all
-            puts "▲ Running git add .".yellow
-            system("git add .")
+            puts '▲ Running git add .'.yellow
+            system('git add .')
             diff_cached = `git diff --cached . #{exclusions}`.chomp
             if diff_cached.empty?
-              puts "▲ Still no changes to commit.".red
+              puts '▲ Still no changes to commit.'.red
               return nil
             end
+          when :exit
+            return nil
+          end
+        else
+          # Scenario: Mixed state (some staged, some not)
+          puts '▲ You have both staged and unstaged changes:'.yellow
+
+          staged_files = `git diff --cached --name-status . #{exclusions}`.chomp
+          unstaged_files = `git diff --name-status . #{exclusions}`.chomp
+
+          puts "\n  #{'Staged changes:'.green}"
+          puts staged_files.gsub(/^/, '    ')
+
+          puts "\n  #{'Unstaged changes:'.red}"
+          puts unstaged_files.gsub(/^/, '    ')
+          puts ''
+
+          prompt = TTY::Prompt.new
+          choice = prompt.select('How to proceed?') do |menu|
+             menu.choice 'Include unstaged changes (git add .)', :add_all
+             menu.choice 'Use staged changes only', :staged_only
+             menu.choice 'Exit', :exit
+          end
+
+          case choice
+          when :add_all
+            puts '▲ Running git add .'.yellow
+            system('git add .')
+            diff_cached = `git diff --cached . #{exclusions}`.chomp
           when :exit
             return nil
           end
@@ -184,7 +184,7 @@ module CommitGpt
         # git status --porcelain includes untracked files
         git_status = `git status --porcelain`.chomp
         if git_status.empty?
-           puts "▲ No changes to commit. Working tree clean.".yellow
+           puts '▲ No changes to commit. Working tree clean.'.yellow
            return nil
         else
            # Only untracked files? Or ignored files?
@@ -193,11 +193,11 @@ module CommitGpt
            choice = prompt_no_staged_changes
            case choice
            when :add_all
-             puts "▲ Running git add .".yellow
-             system("git add .")
+             puts '▲ Running git add .'.yellow
+             system('git add .')
              diff_cached = `git diff --cached . #{exclusions}`.chomp
            when :exit
-            return nil
+             return nil
            end
         end
       end
@@ -221,12 +221,12 @@ module CommitGpt
     end
 
     def prompt_no_staged_changes
-      puts "▲ No staged changes found (but unstaged/untracked files exist).".yellow
+      puts '▲ No staged changes found (but unstaged/untracked files exist).'.yellow
       prompt = TTY::Prompt.new
       begin
-        prompt.select("Choose an option:") do |menu|
+        prompt.select('Choose an option:') do |menu|
           menu.choice "Run 'git add .' to stage all changes", :add_all
-          menu.choice "Exit (stage files manually)", :exit
+          menu.choice 'Exit (stage files manually)', :exit
         end
       rescue TTY::Reader::InputInterrupt, Interrupt
         :exit
@@ -237,10 +237,10 @@ module CommitGpt
       puts "▲ The diff is too large (#{current_len} chars, max #{max_len}).".yellow
       prompt = TTY::Prompt.new
       begin
-        prompt.select("Choose an option:") do |menu|
+        prompt.select('Choose an option:') do |menu|
           menu.choice "Use first #{max_len} characters to generate commit message", :truncate
-          menu.choice "Use unlimited characters (may fail or be slow)", :unlimited
-          menu.choice "Exit", :exit
+          menu.choice 'Use unlimited characters (may fail or be slow)', :unlimited
+          menu.choice 'Exit', :exit
         end
       rescue TTY::Reader::InputInterrupt, Interrupt
         :exit
@@ -252,7 +252,7 @@ module CommitGpt
 
       # Check if config exists
       unless ConfigManager.config_exists?
-        puts "▲ Configuration not found. Generating default config...".yellow
+        puts '▲ Configuration not found. Generating default config...'.yellow
         ConfigManager.generate_default_configs
         puts "▲ Please run 'aicm setup' to configure your provider.".red
         return false
@@ -272,36 +272,36 @@ module CommitGpt
       begin
         `git rev-parse --is-inside-work-tree`
       rescue StandardError
-        puts "▲ This is not a git repository".red
+        puts '▲ This is not a git repository'.red
         return false
       end
 
       true
     end
 
-    def generate_commit(diff = "")
+    def generate_commit(diff = '')
       messages = [
         {
-          role: "system",
-          content: "Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body. " \
+          role: 'system',
+          content: 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body. ' \
                    "Message language: English. Rules:\n" \
                    "- Commit message must be a maximum of 100 characters.\n" \
                    "- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.\n" \
                    "- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text. \n" \
                    "- Be specific: include concrete details (package names, versions, functionality) rather than generic statements. \n" \
-                   "- Return ONLY the commit message, nothing else."
+                   '- Return ONLY the commit message, nothing else.'
         },
         {
-          role: "user",
+          role: 'user',
           content: "Generate a commit message for the following git diff:\n\n#{diff}"
         }
       ]
 
       # Check config for disable_reasoning support (default true if not set)
       provider_config = ConfigManager.get_active_provider_config
-      can_disable_reasoning = provider_config.key?("can_disable_reasoning") ? provider_config["can_disable_reasoning"] : true
+      can_disable_reasoning = provider_config.key?('can_disable_reasoning') ? provider_config['can_disable_reasoning'] : true
       # Get configured max_tokens or default to 2000
-      configured_max_tokens = provider_config["max_tokens"] || 2000
+      configured_max_tokens = provider_config['max_tokens'] || 2000
 
       payload = {
         model: @model,
@@ -318,33 +318,37 @@ module CommitGpt
       end
 
       # Initial UI feedback (only on first try)
-      puts "....... Generating your AI commit message ......".gray unless defined?(@is_retrying) && @is_retrying
+      puts '....... Generating your AI commit message ......'.gray unless defined?(@is_retrying) && @is_retrying
 
-      full_content = ""
-      full_reasoning = ""
+      full_content = ''
+      full_reasoning = ''
       printed_reasoning = false
       printed_content_prefix = false
       stop_stream = false
-      
+
       uri = URI("#{@base_url}/chat/completions")
       http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = (uri.scheme == "https")
+      http.use_ssl = (uri.scheme == 'https')
       http.read_timeout = 120
 
       request = Net::HTTP::Post.new(uri)
-      request["Content-Type"] = "application/json"
-      request["Authorization"] = "Bearer #{@api_key}" if @api_key
+      request['Content-Type'] = 'application/json'
+      request['Authorization'] = "Bearer #{@api_key}" if @api_key
       request.body = payload.to_json
 
       begin
         http.request(request) do |response|
-          if response.code != "200"
+          if response.code != '200'
             # Parse error body
-            error_body = response.read_body 
-            result = JSON.parse(error_body) rescue nil
-            
+            error_body = response.read_body
+            result = begin
+                       JSON.parse(error_body)
+            rescue StandardError
+                       nil
+            end
+
             error_msg = if result
-                          result.dig("error", "message") || result["error"] || result["message"]
+                          result.dig('error', 'message') || result['error'] || result['message']
                         else
                           error_body
                         end
@@ -353,10 +357,10 @@ module CommitGpt
               error_msg = "HTTP #{response.code}"
               error_msg += " Raw: #{error_body}" unless error_body.to_s.strip.empty?
             end
-            
-            if can_disable_reasoning && (error_msg =~ /parameter|reasoning|unsupported/i || response.code == "400")
+
+            if can_disable_reasoning && (error_msg =~ /parameter|reasoning|unsupported/i || response.code == '400')
                puts "▲ Provider does not support 'disable_reasoning'. Updating config and retrying...".yellow
-               ConfigManager.update_provider(provider_config["name"], { "can_disable_reasoning" => false })
+               ConfigManager.update_provider(provider_config['name'], { 'can_disable_reasoning' => false })
                @is_retrying = true
                return generate_commit(diff)
             else
@@ -364,9 +368,9 @@ module CommitGpt
                return nil
             end
           end
-          
+
           # Process Streaming Response
-          buffer = ""
+          buffer = ''
           response.read_body do |chunk|
             break if stop_stream
 
@@ -374,22 +378,20 @@ module CommitGpt
             while (line_end = buffer.index("\n"))
               line = buffer.slice!(0, line_end + 1).strip
               next if line.empty?
-              next unless line.start_with?("data: ")
+              next unless line.start_with?('data: ')
 
-              data_str = line[6..-1]
-              next if data_str == "[DONE]"
+              data_str = line[6..]
+              next if data_str == '[DONE]'
 
               begin
                 data = JSON.parse(data_str)
-                delta = data.dig("choices", 0, "delta")
+                delta = data.dig('choices', 0, 'delta')
                 next unless delta
 
                 # Handle Reasoning
-                reasoning_chunk = delta["reasoning_content"] || delta["reasoning"]
+                reasoning_chunk = delta['reasoning_content'] || delta['reasoning']
                 if reasoning_chunk && !reasoning_chunk.empty?
-                  unless printed_reasoning
-                     puts "\nThinking...".gray
-                  end
+                  puts "\nThinking...".gray unless printed_reasoning
                   print reasoning_chunk.gray
                   full_reasoning += reasoning_chunk
                   printed_reasoning = true
@@ -397,17 +399,17 @@ module CommitGpt
                 end
 
                 # Handle Content
-                content_chunk = delta["content"]
+                content_chunk = delta['content']
                 if content_chunk && !content_chunk.empty?
                   if printed_reasoning && !printed_content_prefix
-                    puts "" # Newline after reasoning block
+                    puts '' # Newline after reasoning block
                   end
-                  
+
                   unless printed_content_prefix
                     print "\n▲ Commit message: git commit -am \"".green
                     printed_content_prefix = true
                   end
-                  
+
                   # Prevent infinite loops/repetitive garbage
                   if full_content.length + content_chunk.length > 300
                     stop_stream = true
@@ -418,12 +420,9 @@ module CommitGpt
                   full_content += content_chunk
                   $stdout.flush
                 end
-                
-                # Handle Usage (some providers send usage at the end)
-                if data["usage"]
-                   @last_usage = data["usage"]
-                end
 
+                # Handle Usage (some providers send usage at the end)
+                @last_usage = data['usage'] if data['usage']
               rescue JSON::ParserError
                 # Partial JSON, wait for more data
               end
@@ -434,38 +433,38 @@ module CommitGpt
         puts "▲ Error: #{e.message}".red
         return nil
       end
-      
+
       # Close the quote
-      puts "\"".green if printed_content_prefix
+      puts '"'.green if printed_content_prefix
 
       # Post-processing Logic (Retry if empty content)
       if (full_content.nil? || full_content.strip.empty?) && (full_reasoning && !full_reasoning.strip.empty?)
           if can_disable_reasoning
               puts "\n▲ Model returned reasoning despite 'disable_reasoning: true'. Updating config and retrying...".yellow
-              ConfigManager.update_provider(provider_config["name"], { "can_disable_reasoning" => false })
+              ConfigManager.update_provider(provider_config['name'], { 'can_disable_reasoning' => false })
               @is_retrying = true
               return generate_commit(diff)
           else
               puts "\n▲ Model output truncated (Reasoning consumed all #{configured_max_tokens} tokens).".red
               prompt = TTY::Prompt.new
-              choice = prompt.select("Choose an action:") do |menu|
+              choice = prompt.select('Choose an action:') do |menu|
                 menu.choice "Double max_tokens to #{configured_max_tokens * 2}", :double
-                menu.choice "Set custom max_tokens...", :custom
-                menu.choice "Abort", :abort
+                menu.choice 'Set custom max_tokens...', :custom
+                menu.choice 'Abort', :abort
               end
 
               new_max = case choice
                         when :double
                           configured_max_tokens * 2
                         when :custom
-                          prompt.ask("Enter new max_tokens:", convert: :int)
+                          prompt.ask('Enter new max_tokens:', convert: :int)
                         when :abort
                           return nil
                         end
-              
+
               if new_max
                  puts "▲ Updating max_tokens to #{new_max} and retrying...".yellow
-                 ConfigManager.update_provider(provider_config["name"], { "max_tokens" => new_max })
+                 ConfigManager.update_provider(provider_config['name'], { 'max_tokens' => new_max })
                  @is_retrying = true
                  return generate_commit(diff)
               end
@@ -474,10 +473,10 @@ module CommitGpt
       end
 
       if full_content.empty? && full_reasoning.empty?
-        puts "▲ No response from AI.".red
+        puts '▲ No response from AI.'.red
         return nil
       end
-      
+
       # Print usage info if available (saved from stream or approximated)
       if defined?(@last_usage) && @last_usage
         puts "\n...... Tokens: #{@last_usage['total_tokens']} (Prompt: #{@last_usage['prompt_tokens']}, Completion: #{@last_usage['completion_tokens']})\n\n".gray
@@ -489,7 +488,7 @@ module CommitGpt
 
       # Take only the first non-empty line to avoid repetition or multi-line garbage
       first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
-      first_line&.gsub(/\A["']|["']\z/, "") || ""
+      first_line&.gsub(/\A["']|["']\z/, '') || ''
     end
   end
 end

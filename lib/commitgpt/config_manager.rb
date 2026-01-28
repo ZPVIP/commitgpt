@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "yaml"
-require "fileutils"
-require_relative "provider_presets"
-require_relative "string"
+require 'yaml'
+require 'fileutils'
+require_relative 'provider_presets'
+require_relative 'string'
 
 module CommitGpt
   # Manages configuration files for CommitGPT
@@ -11,22 +11,22 @@ module CommitGpt
     class << self
       # Get the config directory path
       def config_dir
-        File.expand_path("~/.config/commitgpt")
+        File.expand_path('~/.config/commitgpt')
       end
 
       # Get main config file path
       def main_config_path
-        File.join(config_dir, "config.yml")
+        File.join(config_dir, 'config.yml')
       end
 
       # Get local config file path
       def local_config_path
-        File.join(config_dir, "config.local.yml")
+        File.join(config_dir, 'config.local.yml')
       end
 
       # Ensure config directory exists
       def ensure_config_dir
-        FileUtils.mkdir_p(config_dir) unless Dir.exist?(config_dir)
+        FileUtils.mkdir_p(config_dir)
       end
 
       # Check if config files exist
@@ -47,12 +47,12 @@ module CommitGpt
       # Get active provider configuration
       def get_active_provider_config
         config = load_config
-        return nil if config.nil? || config["active_provider"].nil?
+        return nil if config.nil? || config['active_provider'].nil?
 
-        active_provider = config["active_provider"]
-        providers = config["providers"] || []
+        active_provider = config['active_provider']
+        providers = config['providers'] || []
 
-        providers.find { |p| p["name"] == active_provider }
+        providers.find { |p| p['name'] == active_provider }
       end
 
       # Save main config
@@ -74,36 +74,36 @@ module CommitGpt
         # Generate main config with all providers but empty models
         providers = PROVIDER_PRESETS.map do |preset|
           {
-            "name" => preset[:value],
-            "model" => "",
-            "diff_len" => 32768,
-            "base_url" => preset[:base_url]
+            'name' => preset[:value],
+            'model' => '',
+            'diff_len' => 32_768,
+            'base_url' => preset[:base_url]
           }
         end
 
         main_config = {
-          "providers" => providers,
-          "active_provider" => ""
+          'providers' => providers,
+          'active_provider' => ''
         }
 
         # Generate local config with empty API keys
         local_providers = PROVIDER_PRESETS.map do |preset|
           {
-            "name" => preset[:value],
-            "api_key" => ""
+            'name' => preset[:value],
+            'api_key' => ''
           }
         end
 
         local_config = {
-          "providers" => local_providers
+          'providers' => local_providers
         }
 
         save_main_config(main_config)
         save_local_config(local_config)
 
         # Remind user to add config.local.yml to .gitignore
-        puts "▲ Generated default configuration files.".green
-        puts "▲ Remember to add ~/.config/commitgpt/config.local.yml to your .gitignore".yellow
+        puts '▲ Generated default configuration files.'.green
+        puts '▲ Remember to add ~/.config/commitgpt/config.local.yml to your .gitignore'.yellow
       end
 
       # Get list of configured providers (with API keys)
@@ -111,25 +111,25 @@ module CommitGpt
         config = load_config
         return [] if config.nil?
 
-        providers = config["providers"] || []
-        providers.select { |p| p["api_key"] && !p["api_key"].empty? }
+        providers = config['providers'] || []
+        providers.select { |p| p['api_key'] && !p['api_key'].empty? }
       end
 
       # Update provider configuration
       def update_provider(provider_name, main_attrs = {}, local_attrs = {})
         # Update main config
         main_config = YAML.load_file(main_config_path)
-        provider = main_config["providers"].find { |p| p["name"] == provider_name }
+        provider = main_config['providers'].find { |p| p['name'] == provider_name }
         provider&.merge!(main_attrs)
         save_main_config(main_config)
 
         # Update local config
-        local_config = File.exist?(local_config_path) ? YAML.load_file(local_config_path) : { "providers" => [] }
-        local_provider = local_config["providers"].find { |p| p["name"] == provider_name }
+        local_config = File.exist?(local_config_path) ? YAML.load_file(local_config_path) : { 'providers' => [] }
+        local_provider = local_config['providers'].find { |p| p['name'] == provider_name }
         if local_provider
           local_provider.merge!(local_attrs)
         else
-          local_config["providers"] << { "name" => provider_name }.merge(local_attrs)
+          local_config['providers'] << { 'name' => provider_name }.merge(local_attrs)
         end
         save_local_config(local_config)
       end
@@ -137,7 +137,7 @@ module CommitGpt
       # Set active provider
       def set_active_provider(provider_name)
         main_config = YAML.load_file(main_config_path)
-        main_config["active_provider"] = provider_name
+        main_config['active_provider'] = provider_name
         save_main_config(main_config)
       end
 
@@ -148,15 +148,15 @@ module CommitGpt
         result = main_config.dup
 
         # Merge provider-specific settings
-        main_providers = main_config["providers"] || []
-        local_providers = local_config["providers"] || []
+        main_providers = main_config['providers'] || []
+        local_providers = local_config['providers'] || []
 
         merged_providers = main_providers.map do |main_provider|
-          local_provider = local_providers.find { |lp| lp["name"] == main_provider["name"] }
+          local_provider = local_providers.find { |lp| lp['name'] == main_provider['name'] }
           local_provider ? main_provider.merge(local_provider) : main_provider
         end
 
-        result["providers"] = merged_providers
+        result['providers'] = merged_providers
         result
       end
     end

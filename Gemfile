@@ -1,19 +1,20 @@
 # frozen_string_literal: true
 
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
 # Specify your gem's dependencies in commitgpt.gemspec
 gemspec
 
-gem "base64"
-gem "bigdecimal"
-gem "csv"
-gem "httparty"
+gem 'base64'
+gem 'bigdecimal'
+gem 'csv'
+gem 'httparty'
 
-gem "rake", "~> 13.0"
+group :development, :test do
+  gem 'rake', '~> 13.0'
+  gem 'rspec', '~> 3.0'
+  gem "bundler-audit"
+  gem 'rubocop'
+end
 
-gem "rspec", "~> 3.0"
-
-gem "rubocop", "~> 1.21"
-
-gem "thor"
+gem 'thor'
