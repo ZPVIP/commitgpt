@@ -115,6 +115,13 @@ module CommitGpt
       diff = `git diff --cached . ":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"`.chomp
 
       if diff.empty?
+        # Check if there are any unstaged changes
+        git_status = `git status --porcelain`.chomp
+        if git_status.empty?
+          puts "▲ No changes to commit. Working tree clean.".yellow
+          return nil
+        end
+
         choice = prompt_no_staged_changes
         case choice
         when :add_all
@@ -227,8 +234,7 @@ module CommitGpt
         model: @model,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 300,
-        disable_reasoning: true
+        max_tokens: 300
       }
 
       begin
