@@ -47,7 +47,7 @@ module CommitGpt
         case action
         when :commit
           commit_command = "git commit -m \"#{ai_commit_message}\""
-          puts "\n▲ Executing: #{commit_command}".orange
+          puts "\n▲ Executing: #{commit_command}".yellow
           system(commit_command)
           puts "\n\n"
           puts `git log -1`

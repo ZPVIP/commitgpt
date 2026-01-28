@@ -9,7 +9,38 @@
 
 ## Installation
 
-### Prerequisites: Install Ruby
+### Method 1: Homebrew (Recommended)
+
+The easiest way to install and keep CommitGPT updated.
+
+**Install:**
+
+```bash
+brew tap ZPVIP/commitgpt https://github.com/ZPVIP/commitgpt
+brew install commitgpt
+```
+
+**Upgrade:**
+
+```bash
+brew update
+brew upgrade commitgpt
+```
+
+**Uninstall:**
+
+```bash
+brew uninstall commitgpt
+# Optional: Remove configuration files manually
+rm -rf ~/.config/commitgpt
+```
+
+### Method 2: RubyGems (For Ruby Developers)
+
+<details>
+<summary>Click to expand RubyGems installation instructions</summary>
+
+#### Prerequisites: Install Ruby
 
 If you don't have Ruby installed, follow these steps first.
 
@@ -69,75 +100,15 @@ ruby --version
 gem update --system
 ```
 
-### Install CommitGPT
-
-
-### Prerequisites: Install Ruby
-
-If you don't have Ruby installed, follow these steps first.
-
-<details>
-<summary><strong>macOS</strong></summary>
-
-**1. Install Homebrew** (skip if already installed)
+#### Install CommitGPT
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**2. Install Ruby dependencies**
-
-```bash
-brew install openssl@3 libyaml gmp rust
+gem install commitgpt
 ```
 
 </details>
 
-<details>
-<summary><strong>Ubuntu / Debian</strong></summary>
-
-**Install Ruby dependencies**
-
-```bash
-sudo apt-get update
-sudo apt install build-essential rustc libssl-dev libyaml-dev zlib1g-dev libgmp-dev
-```
-
-</details>
-
-**Install Ruby with Mise** (version manager)
-
-```bash
-# Install Mise
-curl https://mise.run | sh
-
-# For zsh (macOS default)
-echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.zshrc
-source ~/.zshrc
-
-# For bash (Ubuntu default)
-# echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.bashrc
-# source ~/.bashrc
-
-# Install Ruby
-mise use --global ruby@3
-
-# Verify installation
-ruby --version
-#=> 3.4.7
-
-# Update RubyGems
-gem update --system
-```
-
-### Install CommitGPT
-
-```bash
-gem install commitgpt
-gem install commitgpt
-```
+---
 
 ## Configuration
 
@@ -189,6 +160,7 @@ View your current configuration (Provider, Model, Base URL, Diff Len):
 ```bash
 $ aicm help
 ```
+(Use the help command to see current active provider settings)
 
 ### View Git Diff
 Preview the diff that will be sent to the AI:
@@ -197,14 +169,14 @@ $ aicm -v
 ```
 
 ### Update
-To update to the latest version:
+To update to the latest version (if installed via Gem):
 ```bash
 $ gem update commitgpt
 ```
 
 ---
 
-### Supported Providers
+## Supported Providers
 We support any OpenAI-compatible API. Presets available for:
 - **Cerebras** (Fast & Recommended)
 - **OpenAI** (Official)
@@ -221,42 +193,80 @@ We support any OpenAI-compatible API. Presets available for:
 
 **OpenAI** ([https://platform.openai.com](https://platform.openai.com))
 ```
-gpt-5.2 
-gpt-5-mini 
-gpt-5-nano 
+gpt-4o
 gpt-4o-mini
 ```
 
 **Cerebras** ([https://cloud.cerebras.ai](https://cloud.cerebras.ai)) ⭐ Recommended
 ```
 zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
-zai-glm-4.6
-gpt-oss-120b
 llama3.1-8b
 llama-3.3-70b
-qwen-3-32b
-qwen-3-235b-a22b-instruct-2507
 ```
 
 **Groq** ([https://console.groq.com](https://console.groq.com))
 ```
 llama-3.3-70b-versatile
 llama-3.1-8b-instant
-meta-llama/llama-4-maverick-17b-128e-instruct
-meta-llama/llama-4-scout-17b-16e-instruct
-qwen/qwen3-32b
-moonshotai/kimi-k2-instruct-0905
-openai/gpt-oss-120b
-groq/compound
-groq/compound-mini
 ```
 
-
 ## How It Works
-This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts for generating conventional commit messages.
+This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts/system instructions for generating conventional commit messages.
 
 ## Special Thanks
 I used ChatGPT to convert `AICommits` from TypeScript to Ruby. Special thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)
+
+---
+
+## Development Guide
+
+### Requirements
+- Ruby >= 2.6.0
+- Git
+
+### Local Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ZPVIP/commitgpt.git
+   cd commitgpt
+   ```
+2. Install dependencies:
+   ```bash
+   bundle install
+   ```
+
+### Local Build and Install
+To test your changes locally (builds the gem and installs it to your system):
+```bash
+gem build commitgpt.gemspec
+gem install ./commitgpt-*.gem
+```
+
+### Publishing
+
+#### RubyGems
+To publish a new version to RubyGems.org (requires RubyGems account permissions):
+```bash
+gem push commitgpt-*.gem
+```
+
+#### Homebrew (GitHub Distribution)
+We use a custom script to automate the GitHub Release and Homebrew Formula update process. This enables users to install via `brew tap`.
+
+**Steps:**
+```bash
+./scripts/release.sh <version>
+# Example: ./scripts/release.sh 0.3.1
+```
+
+**This script automates:**
+1. Creating and pushing a Git Tag.
+2. Creating a GitHub Release (which generates the source tarball).
+3. Calculating the SHA256 checksum of the tarball.
+4. Updating `Formula/commitgpt.rb` with the new URL and checksum.
+5. Committing and pushing the updated Formula to the repository.
+
+---
 
 ## Contributing
 Bug reports and pull requests are welcome on GitHub at https://github.com/ZPVIP/commitgpt. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/ZPVIP/commitgpt/blob/main/CODE_OF_CONDUCT.md).
