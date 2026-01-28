@@ -37,8 +37,39 @@ module CommitGpt
         puts diff
         puts "\n"
       end
-      ai_commit_message = message(diff) || exit(1)
-      puts `git commit -m "#{ai_commit_message}" && echo && echo && git log -1 && echo` if confirmed
+
+      loop do
+        ai_commit_message = message(diff) || exit(1)
+        action = confirm_commit(ai_commit_message)
+
+        case action
+        when :commit
+          commit_command = "git commit -m \"#{ai_commit_message}\""
+          puts "\n▲ Executing: #{commit_command}".gray
+          system(commit_command)
+          puts "\n"
+          puts `git log -1`
+          break
+        when :regenerate
+          puts "\n"
+          next
+        when :edit
+          prompt = TTY::Prompt.new
+          new_message = prompt.ask("Enter your commit message:")
+          if new_message && !new_message.strip.empty?
+             commit_command = "git commit -m \"#{new_message}\""
+             system(commit_command)
+             puts "\n"
+             puts `git log -1`
+          else
+             puts "▲ Commit aborted (empty message).".red
+          end
+          break
+        when :exit
+          puts "▲ Exit without commit.".yellow
+          break
+        end
+      end
     end
 
     def list_models
@@ -59,24 +90,25 @@ module CommitGpt
 
     private
 
-    def confirmed
-      puts "▲ Do you want to commit this message? [y/n]".magenta
-
-      use_commit_message = nil
-      use_commit_message = $stdin.getch.downcase until use_commit_message =~ /\A[yn]\z/i
-
-      puts "\n▲ Commit message has not been commited.\n".red if use_commit_message == "n"
-
-      use_commit_message == "y"
+    def confirm_commit(message)
+      prompt = TTY::Prompt.new
+      puts "\n▲ Commit message: git commit -am \"#{message}\"".green + "\n\n"
+      
+      begin
+        prompt.select("Action:") do |menu|
+          menu.choice "Commit", :commit
+          menu.choice "Regenerate", :regenerate
+          menu.choice "Edit", :edit
+          menu.choice "Exit without commit", :exit
+        end
+      rescue TTY::Reader::InputInterrupt, Interrupt
+        :exit
+      end
     end
 
     def message(diff = nil)
-      puts "▲   Generating your AI commit message...\n".gray
-      ai_commit_message = generate_commit(diff)
-      return nil if ai_commit_message.nil?
-
-      puts "#{"▲ Commit message: ".green}git commit -am \"#{ai_commit_message}\"\n\n"
-      ai_commit_message
+      puts "▲   Generating your AI commit message...".gray
+      generate_commit(diff)
     end
 
     def git_diff

@@ -53,33 +53,37 @@ RSpec.describe CommitGpt do
     end
   end
 
-  describe "AICM_LINK configuration" do
-    it "uses default OpenAI API link" do
-      expect(CommitGpt::CommitAi::AICM_LINK).to eq("https://api.openai.com/v1")
-    end
-  end
-
   describe "#welcome" do
-    context "without API key but with custom link" do
+    context "with valid configuration" do
       before do
-        stub_const("CommitGpt::CommitAi::AICM_KEY", nil)
-        stub_const("CommitGpt::CommitAi::AICM_LINK", "http://127.0.0.1:8045/v1")
+        allow(CommitGpt::ConfigManager).to receive(:config_exists?).and_return(true)
+        allow(CommitGpt::ConfigManager).to receive(:get_active_provider_config).and_return({
+          "api_key" => "test-key",
+          "base_url" => "https://api.openai.com/v1",
+          "model" => "gpt-4o-mini"
+        })
         allow(commit_ai).to receive(:`).with("git rev-parse --is-inside-work-tree").and_return("true")
       end
 
-      it "allows proceeding without API key for custom endpoints" do
-        expect { commit_ai.send(:welcome) }.to output(/Welcome/).to_stdout
+      it "shows welcome message and returns true" do
+        commit_ai_with_config = CommitGpt::CommitAi.new
+        expect { commit_ai_with_config.send(:welcome) }.to output(/Welcome/).to_stdout
       end
     end
 
-    context "without API key and default link" do
+    context "without API key configured" do
       before do
-        stub_const("CommitGpt::CommitAi::AICM_KEY", nil)
-        stub_const("CommitGpt::CommitAi::AICM_LINK", "https://api.openai.com/v1")
+        allow(CommitGpt::ConfigManager).to receive(:config_exists?).and_return(true)
+        allow(CommitGpt::ConfigManager).to receive(:get_active_provider_config).and_return({
+          "api_key" => nil,
+          "base_url" => "https://api.openai.com/v1",
+          "model" => "gpt-4o-mini"
+        })
       end
 
-      it "requires API key for default OpenAI endpoint" do
-        expect { commit_ai.send(:welcome) }.to output(/AICM_KEY/).to_stdout
+      it "requires running setup" do
+        commit_ai_no_key = CommitGpt::CommitAi.new
+        expect { commit_ai_no_key.send(:welcome) }.to output(/aicm setup/).to_stdout
       end
     end
   end

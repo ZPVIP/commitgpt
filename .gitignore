@@ -12,6 +12,3 @@
 .idea/**
 .DS_Store
 commitgpt-*.gem
-
-# Local configuration with API keys
-config.local.yml

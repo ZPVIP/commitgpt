@@ -155,7 +155,7 @@ We support any OpenAI-compatible API. Presets available for:
 
 ### Recommended Providers
 
-**OpenAI** ([https://api.openai.com/v1](https://platform.openai.com))
+**OpenAI** ([https://platform.openai.com](https://platform.openai.com))
 ```
 gpt-5.2 
 gpt-5-mini 
@@ -163,7 +163,7 @@ gpt-5-nano
 gpt-4o-mini
 ```
 
-**Cerebras** ([https://api.cerebras.ai/v1](https://cloud.cerebras.ai)) ⭐ Recommended
+**Cerebras** ([https://cloud.cerebras.ai](https://cloud.cerebras.ai)) ⭐ Recommended
 ```
 zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
 zai-glm-4.6
@@ -174,7 +174,7 @@ qwen-3-32b
 qwen-3-235b-a22b-instruct-2507
 ```
 
-**Groq** ([https://api.groq.com/openai/v1](https://console.groq.com))
+**Groq** ([https://console.groq.com](https://console.groq.com))
 ```
 llama-3.3-70b-versatile
 llama-3.1-8b-instant
@@ -190,9 +190,6 @@ groq/compound-mini
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts for generating conventional commit messages.
-
-## Limitations
-- The generated commit message can't be edited interactively, but you can choose `n` and copy the command to edit manually.
 
 ## Special Thanks
 I used ChatGPT to convert `AICommits` from TypeScript to Ruby. Special thanks to [https://github.com/Nutlope/aicommits](https://github.com/Nutlope/aicommits)

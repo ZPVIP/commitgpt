@@ -49,8 +49,11 @@ module CommitGpt
 
       model = select_model(models, provider["model"])
       
+      # Prompt for diff length
+      diff_len = prompt_diff_len(provider["diff_len"] || 32768)
+      
       # Update config
-      ConfigManager.update_provider(selected, { "model" => model })
+      ConfigManager.update_provider(selected, { "model" => model, "diff_len" => diff_len })
       ConfigManager.set_active_provider(selected)
 
       preset = PROVIDER_PRESETS.find { |pr| pr[:value] == selected }
@@ -58,6 +61,27 @@ module CommitGpt
 
       puts "\nModel selected: #{model}".green
       puts "Setup complete ✅  You're now using #{provider_label}.".green
+    end
+
+    # Change model for the active provider
+    def change_model
+      provider_config = ConfigManager.get_active_provider_config
+      
+      if provider_config.nil? || provider_config["api_key"].nil? || provider_config["api_key"].empty?
+        puts "▲ No active provider configured. Please run 'aicm setup'.".red
+        return
+      end
+
+      # Fetch models and let user select
+      models = fetch_models_with_timeout(provider_config["base_url"], provider_config["api_key"])
+      return if models.nil?
+
+      model = select_model(models, provider_config["model"])
+      
+      # Update config
+      ConfigManager.update_provider(provider_config["name"], { "model" => model })
+      
+      puts "\nModel selected: #{model}".green
     end
 
     private
