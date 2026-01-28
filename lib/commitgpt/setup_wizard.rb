@@ -54,6 +54,7 @@ module CommitGpt
       
       # Update config
       ConfigManager.update_provider(selected, { "model" => model, "diff_len" => diff_len })
+      reset_provider_inference_params(selected)
       ConfigManager.set_active_provider(selected)
 
       preset = PROVIDER_PRESETS.find { |pr| pr[:value] == selected }
@@ -80,6 +81,7 @@ module CommitGpt
       
       # Update config
       ConfigManager.update_provider(provider_config["name"], { "model" => model })
+      reset_provider_inference_params(provider_config["name"])
       
       puts "\nModel selected: #{model}".green
     end
@@ -295,6 +297,18 @@ module CommitGpt
       end
 
       answer || default
+    end
+
+    def reset_provider_inference_params(provider_name)
+      config = YAML.load_file(ConfigManager.main_config_path)
+      return unless config && config["providers"]
+      
+      provider = config["providers"].find { |p| p["name"] == provider_name }
+      if provider
+        provider.delete("can_disable_reasoning")
+        provider.delete("max_tokens")
+        ConfigManager.save_main_config(config)
+      end
     end
   end
 end

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "httparty"
+require "net/http"
+require "uri"
 require "json"
 require "io/console"
 require "tty-prompt"
@@ -92,7 +94,6 @@ module CommitGpt
 
     def confirm_commit(message)
       prompt = TTY::Prompt.new
-      puts "\n▲ Commit message: git commit -am \"#{message}\"".green + "\n\n"
       
       begin
         prompt.select("Action:") do |menu|
@@ -107,35 +108,85 @@ module CommitGpt
     end
 
     def message(diff = nil)
-      puts "▲   Generating your AI commit message...".gray
       generate_commit(diff)
     end
 
     def git_diff
-      diff = `git diff --cached . ":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"`.chomp
+      exclusions = '":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"'
+      diff_cached = `git diff --cached . #{exclusions}`.chomp
+      diff_unstaged = `git diff . #{exclusions}`.chomp
 
-      if diff.empty?
-        # Check if there are any unstaged changes
-        git_status = `git status --porcelain`.chomp
-        if git_status.empty?
-          puts "▲ No changes to commit. Working tree clean.".yellow
-          return nil
-        end
+      if !diff_unstaged.empty?
+        if !diff_cached.empty?
+          # Scenario: Mixed state (some staged, some not)
+          puts "▲ You have both staged and unstaged changes:".yellow
+          
+          staged_files = `git diff --cached --name-status . #{exclusions}`.chomp
+          unstaged_files = `git diff --name-status . #{exclusions}`.chomp
 
-        choice = prompt_no_staged_changes
-        case choice
-        when :add_all
-          puts "▲ Running git add .".yellow
-          system("git add .")
-          diff = `git diff --cached . ":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"`.chomp
-          if diff.empty?
-            puts "▲ Still no changes to commit.".red
+          puts "\n  #{'Staged changes:'.green}"
+          puts staged_files.gsub(/^/, "    ")
+
+          puts "\n  #{'Unstaged changes:'.red}"
+          puts unstaged_files.gsub(/^/, "    ")
+          puts ""
+
+          prompt = TTY::Prompt.new
+          choice = prompt.select("How to proceed?") do |menu|
+             menu.choice "Include unstaged changes (git add .)", :add_all
+             menu.choice "Use staged changes only", :staged_only
+             menu.choice "Exit", :exit
+          end
+
+          case choice
+          when :add_all
+            puts "▲ Running git add .".yellow
+            system("git add .")
+            diff_cached = `git diff --cached . #{exclusions}`.chomp
+          when :exit
             return nil
           end
-        when :exit
-          return nil
+        else
+          # Scenario: Only unstaged changes
+          choice = prompt_no_staged_changes
+          case choice
+          when :add_all
+            puts "▲ Running git add .".yellow
+            system("git add .")
+            diff_cached = `git diff --cached . #{exclusions}`.chomp
+            if diff_cached.empty?
+              puts "▲ Still no changes to commit.".red
+              return nil
+            end
+          when :exit
+            return nil
+          end
+        end
+      elsif diff_cached.empty?
+        # Scenario: No changes at all (staged or unstaged)
+        # Check if there are ANY unstaged files (maybe untracked?)
+        # git status --porcelain includes untracked files
+        git_status = `git status --porcelain`.chomp
+        if git_status.empty?
+           puts "▲ No changes to commit. Working tree clean.".yellow
+           return nil
+        else
+           # Only untracked files? Or ignored files?
+           # If diff_unstaged is empty but git status is not, it usually means untracked files.
+           # Let's offer to add them too.
+           choice = prompt_no_staged_changes
+           case choice
+           when :add_all
+             puts "▲ Running git add .".yellow
+             system("git add .")
+             diff_cached = `git diff --cached . #{exclusions}`.chomp
+           when :exit
+            return nil
+           end
         end
       end
+
+      diff = diff_cached
 
       if diff.length > @diff_len
         choice = prompt_diff_handling(diff.length, @diff_len)
@@ -154,7 +205,7 @@ module CommitGpt
     end
 
     def prompt_no_staged_changes
-      puts "▲ No staged changes found.".yellow
+      puts "▲ No staged changes found (but unstaged/untracked files exist).".yellow
       prompt = TTY::Prompt.new
       begin
         prompt.select("Choose an option:") do |menu|
@@ -230,44 +281,199 @@ module CommitGpt
         }
       ]
 
+      # Check config for disable_reasoning support (default true if not set)
+      provider_config = ConfigManager.get_active_provider_config
+      can_disable_reasoning = provider_config.key?("can_disable_reasoning") ? provider_config["can_disable_reasoning"] : true
+      # Get configured max_tokens or default to 2000
+      configured_max_tokens = provider_config["max_tokens"] || 2000
+
       payload = {
         model: @model,
         messages: messages,
-        temperature: 0.7,
-        max_tokens: 300
+        temperature: 0.5,
+        stream: true
       }
 
+      if can_disable_reasoning
+        payload[:disable_reasoning] = true
+        payload[:max_tokens] = 300
+      else
+        payload[:max_tokens] = configured_max_tokens
+      end
+
+      # Initial UI feedback (only on first try)
+      puts "....... Generating your AI commit message ......".gray unless defined?(@is_retrying) && @is_retrying
+
+      full_content = ""
+      full_reasoning = ""
+      printed_reasoning = false
+      printed_content_prefix = false
+      stop_stream = false
+      
+      uri = URI("#{@base_url}/chat/completions")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == "https")
+      http.read_timeout = 120
+
+      request = Net::HTTP::Post.new(uri)
+      request["Content-Type"] = "application/json"
+      request["Authorization"] = "Bearer #{@api_key}" if @api_key
+      request.body = payload.to_json
+
       begin
-        headers = {
-          "Content-Type" => "application/json",
-          "User-Agent" => "Ruby/#{RUBY_VERSION}"
-        }
-        headers["Authorization"] = "Bearer #{@api_key}" if @api_key
+        http.request(request) do |response|
+          if response.code != "200"
+            # Parse error body
+            error_body = response.read_body 
+            result = JSON.parse(error_body) rescue nil
+            
+            error_msg = if result
+                          result.dig("error", "message") || result["error"] || result["message"]
+                        else
+                          error_body
+                        end
 
-        response = HTTParty.post("#{@base_url}/chat/completions",
-                                 headers: headers,
-                                 body: payload.to_json)
+            if error_msg.nil? || error_msg.to_s.strip.empty?
+              error_msg = "HTTP #{response.code}"
+              error_msg += " Raw: #{error_body}" unless error_body.to_s.strip.empty?
+            end
+            
+            if can_disable_reasoning && (error_msg =~ /parameter|reasoning|unsupported/i || response.code == "400")
+               puts "▲ Provider does not support 'disable_reasoning'. Updating config and retrying...".yellow
+               ConfigManager.update_provider(provider_config["name"], { "can_disable_reasoning" => false })
+               @is_retrying = true
+               return generate_commit(diff)
+            else
+               puts "▲ API Error: #{error_msg}".red
+               return nil
+            end
+          end
+          
+          # Process Streaming Response
+          buffer = ""
+          response.read_body do |chunk|
+            break if stop_stream
 
-        # Check for API error response
-        if response["error"]
-          puts "▲ API Error: #{response['error']['message']}".red
-          return nil
-        end
+            buffer += chunk
+            while (line_end = buffer.index("\n"))
+              line = buffer.slice!(0, line_end + 1).strip
+              next if line.empty?
+              next unless line.start_with?("data: ")
 
-        message = response.dig("choices", 0, "message")
-        # Some models (like zai-glm) use 'reasoning' instead of 'content'
-        ai_commit = message&.dig("content") || message&.dig("reasoning")
-        if ai_commit.nil?
-          puts "▲ Unexpected API response format:".red
-          puts response.inspect
-          return nil
+              data_str = line[6..-1]
+              next if data_str == "[DONE]"
+
+              begin
+                data = JSON.parse(data_str)
+                delta = data.dig("choices", 0, "delta")
+                next unless delta
+
+                # Handle Reasoning
+                reasoning_chunk = delta["reasoning_content"] || delta["reasoning"]
+                if reasoning_chunk && !reasoning_chunk.empty?
+                  unless printed_reasoning
+                     puts "\nThinking...".gray
+                  end
+                  print reasoning_chunk.gray
+                  full_reasoning += reasoning_chunk
+                  printed_reasoning = true
+                  $stdout.flush
+                end
+
+                # Handle Content
+                content_chunk = delta["content"]
+                if content_chunk && !content_chunk.empty?
+                  if printed_reasoning && !printed_content_prefix
+                    puts "" # Newline after reasoning block
+                  end
+                  
+                  unless printed_content_prefix
+                    print "\n▲ Commit message: git commit -am \"".green
+                    printed_content_prefix = true
+                  end
+                  
+                  # Prevent infinite loops/repetitive garbage
+                  if full_content.length + content_chunk.length > 300
+                    stop_stream = true
+                    break
+                  end
+
+                  print content_chunk.green
+                  full_content += content_chunk
+                  $stdout.flush
+                end
+                
+                # Handle Usage (some providers send usage at the end)
+                if data["usage"]
+                   @last_usage = data["usage"]
+                end
+
+              rescue JSON::ParserError
+                # Partial JSON, wait for more data
+              end
+            end
+          end
         end
       rescue StandardError => e
         puts "▲ Error: #{e.message}".red
         return nil
       end
+      
+      # Close the quote
+      puts "\"".green if printed_content_prefix
 
-      ai_commit.gsub(/(\r\n|\n|\r)/, "").gsub(/\A["']|["']\z/, "")
+      # Post-processing Logic (Retry if empty content)
+      if (full_content.nil? || full_content.strip.empty?) && (full_reasoning && !full_reasoning.strip.empty?)
+          if can_disable_reasoning
+              puts "\n▲ Model returned reasoning despite 'disable_reasoning: true'. Updating config and retrying...".yellow
+              ConfigManager.update_provider(provider_config["name"], { "can_disable_reasoning" => false })
+              @is_retrying = true
+              return generate_commit(diff)
+          else
+              puts "\n▲ Model output truncated (Reasoning consumed all #{configured_max_tokens} tokens).".red
+              prompt = TTY::Prompt.new
+              choice = prompt.select("Choose an action:") do |menu|
+                menu.choice "Double max_tokens to #{configured_max_tokens * 2}", :double
+                menu.choice "Set custom max_tokens...", :custom
+                menu.choice "Abort", :abort
+              end
+
+              new_max = case choice
+                        when :double
+                          configured_max_tokens * 2
+                        when :custom
+                          prompt.ask("Enter new max_tokens:", convert: :int)
+                        when :abort
+                          return nil
+                        end
+              
+              if new_max
+                 puts "▲ Updating max_tokens to #{new_max} and retrying...".yellow
+                 ConfigManager.update_provider(provider_config["name"], { "max_tokens" => new_max })
+                 @is_retrying = true
+                 return generate_commit(diff)
+              end
+              return nil
+          end
+      end
+
+      if full_content.empty? && full_reasoning.empty?
+        puts "▲ No response from AI.".red
+        return nil
+      end
+      
+      # Print usage info if available (saved from stream or approximated)
+      if defined?(@last_usage) && @last_usage
+        puts "\n...... Tokens: #{@last_usage['total_tokens']} (Prompt: #{@last_usage['prompt_tokens']}, Completion: #{@last_usage['completion_tokens']})\n\n".gray
+        @last_usage = nil
+      end
+
+      # Reset retrying flag
+      @is_retrying = false
+
+      # Take only the first non-empty line to avoid repetition or multi-line garbage
+      first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
+      first_line&.gsub(/\A["']|["']\z/, "") || ""
     end
   end
 end
