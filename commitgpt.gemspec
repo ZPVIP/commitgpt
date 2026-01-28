@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   # Uncomment to register a new dependency of your gem
   spec.add_dependency "httparty", "~> 0.18"
   spec.add_dependency "thor", "~> 1.2"
+  spec.add_dependency "tty-prompt", "~> 0.23"
 
   # For more information and examples about making a new gem, checkout our
   # guide at: https://bundler.io/guides/creating_gem.html

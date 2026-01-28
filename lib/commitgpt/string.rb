@@ -21,4 +21,8 @@ class String
   def cyan
     "\e[36m#{self}\e[0m"
   end
+
+  def yellow
+    "\e[33m#{self}\e[0m"
+  end
 end

@@ -3,16 +3,31 @@
 require "httparty"
 require "json"
 require "io/console"
+require "tty-prompt"
 require_relative "string"
+require_relative "config_manager"
 
 # CommitGpt based on GPT-3
 module CommitGpt
   # Commit AI roboter based on GPT-3
   class CommitAi
-    AICM_KEY = ENV.fetch("AICM_KEY", nil)
-    AICM_LINK = ENV.fetch("AICM_LINK", "https://api.openai.com/v1")
-    AICM_DIFF_LEN = ENV.fetch("AICM_DIFF_LEN", "32768").to_i
-    AICM_MODEL = ENV.fetch("AICM_MODEL", "gpt-4o-mini")
+    attr_reader :api_key, :base_url, :model, :diff_len
+
+    def initialize
+      provider_config = ConfigManager.get_active_provider_config
+      
+      if provider_config
+        @api_key = provider_config["api_key"]
+        @base_url = provider_config["base_url"]
+        @model = provider_config["model"]
+        @diff_len = provider_config["diff_len"] || 32768
+      else
+        @api_key = nil
+        @base_url = nil
+        @model = nil
+        @diff_len = 32768
+      end
+    end
 
     def aicm(verbose: false)
       exit(1) unless welcome
@@ -31,10 +46,10 @@ module CommitGpt
         "Content-Type" => "application/json",
         "User-Agent" => "Ruby/#{RUBY_VERSION}"
       }
-      headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+      headers["Authorization"] = "Bearer #{@api_key}" if @api_key
 
       begin
-        response = HTTParty.get("#{AICM_LINK}/models", headers: headers)
+        response = HTTParty.get("#{@base_url}/models", headers: headers)
         models = response["data"] || []
         models.each { |m| puts m["id"] }
       rescue StandardError => e
@@ -72,19 +87,51 @@ module CommitGpt
         return nil
       end
 
-      if diff.length > AICM_DIFF_LEN
-        puts "▲ The diff is too large (#{diff.length} chars, max #{AICM_DIFF_LEN}). Set AICM_DIFF_LEN to increase limit.".red
-        return nil
+      if diff.length > @diff_len
+        choice = prompt_diff_handling(diff.length, @diff_len)
+        case choice
+        when :truncate
+          puts "▲ Truncating diff to #{@diff_len} chars...".yellow
+          diff = diff[0...@diff_len]
+        when :unlimited
+          puts "▲ Using full diff (#{diff.length} chars)...".yellow
+        when :exit
+          return nil
+        end
       end
 
       diff
     end
 
+    def prompt_diff_handling(current_len, max_len)
+      puts "▲ The diff is too large (#{current_len} chars, max #{max_len}).".yellow
+      prompt = TTY::Prompt.new
+      prompt.select("Choose an option:") do |menu|
+        menu.choice "Use first #{max_len} characters to generate commit message", :truncate
+        menu.choice "Use unlimited characters (may fail or be slow)", :unlimited
+        menu.choice "Exit", :exit
+      end
+    end
+
     def welcome
       puts "\n▲ Welcome to AI Commits!".green
 
-      if AICM_KEY.nil? && AICM_LINK == "https://api.openai.com/v1"
-        puts "▲ Please save your API key as an env variable by doing 'export AICM_KEY=YOUR_API_KEY'".red
+      # Check if config exists
+      unless ConfigManager.config_exists?
+        puts "▲ Configuration not found. Generating default config...".yellow
+        ConfigManager.generate_default_configs
+        puts "▲ Please run 'aicm setup' to configure your provider.".red
+        return false
+      end
+
+      # Check if active provider is configured
+      if @api_key.nil? || @api_key.empty?
+        puts "▲ No active provider configured. Please run 'aicm setup'.".red
+        return false
+      end
+
+      if @model.nil? || @model.empty?
+        puts "▲ No model selected. Please run 'aicm setup'.".red
         return false
       end
 
@@ -117,7 +164,7 @@ module CommitGpt
       ]
 
       payload = {
-        model: AICM_MODEL,
+        model: @model,
         messages: messages,
         temperature: 0.7,
         max_tokens: 300,
@@ -129,9 +176,9 @@ module CommitGpt
           "Content-Type" => "application/json",
           "User-Agent" => "Ruby/#{RUBY_VERSION}"
         }
-        headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+        headers["Authorization"] = "Bearer #{@api_key}" if @api_key
 
-        response = HTTParty.post("#{AICM_LINK}/chat/completions",
+        response = HTTParty.post("#{@base_url}/chat/completions",
                                  headers: headers,
                                  body: payload.to_json)
 
