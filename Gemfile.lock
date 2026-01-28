@@ -13,6 +13,9 @@ GEM
     base64 (0.3.0)
     bigdecimal (4.0.1)
     csv (3.3.5)
+    base64 (0.3.0)
+    bigdecimal (4.0.1)
+    csv (3.3.5)
     diff-lcs (1.5.0)
     httparty (0.21.0)
       mini_mime (>= 1.0.0)
@@ -70,12 +73,16 @@ GEM
 PLATFORMS
   arm64-darwin-21
   arm64-darwin-25
+  arm64-darwin-25
   x86_64-darwin-22
 
 DEPENDENCIES
   base64
   bigdecimal
+  base64
+  bigdecimal
   commitgpt!
+  csv
   csv
   httparty
   rake (~> 13.0)

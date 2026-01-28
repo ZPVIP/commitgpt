@@ -71,7 +71,71 @@ gem update --system
 
 ### Install CommitGPT
 
+
+### Prerequisites: Install Ruby
+
+If you don't have Ruby installed, follow these steps first.
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+**1. Install Homebrew** (skip if already installed)
+
 ```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**2. Install Ruby dependencies**
+
+```bash
+brew install openssl@3 libyaml gmp rust
+```
+
+</details>
+
+<details>
+<summary><strong>Ubuntu / Debian</strong></summary>
+
+**Install Ruby dependencies**
+
+```bash
+sudo apt-get update
+sudo apt install build-essential rustc libssl-dev libyaml-dev zlib1g-dev libgmp-dev
+```
+
+</details>
+
+**Install Ruby with Mise** (version manager)
+
+```bash
+# Install Mise
+curl https://mise.run | sh
+
+# For zsh (macOS default)
+echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.zshrc
+source ~/.zshrc
+
+# For bash (Ubuntu default)
+# echo 'eval "$(~/.local/bin/mise activate)"' >> ~/.bashrc
+# source ~/.bashrc
+
+# Install Ruby
+mise use --global ruby@3
+
+# Verify installation
+ruby --version
+#=> 3.4.7
+
+# Update RubyGems
+gem update --system
+```
+
+### Install CommitGPT
+
+```bash
+gem install commitgpt
 gem install commitgpt
 ```
 

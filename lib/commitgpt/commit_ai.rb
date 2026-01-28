@@ -90,6 +90,22 @@ module CommitGpt
       end
     end
 
+    def list_models
+      headers = {
+        "Content-Type" => "application/json",
+        "User-Agent" => "Ruby/#{RUBY_VERSION}"
+      }
+      headers["Authorization"] = "Bearer #{AICM_KEY}" if AICM_KEY
+
+      begin
+        response = HTTParty.get("#{AICM_LINK}/models", headers: headers)
+        models = response["data"] || []
+        models.each { |m| puts m["id"] }
+      rescue StandardError => e
+        puts "▲ Failed to list models: #{e.message}".red
+      end
+    end
+
     private
 
     def confirm_commit(message)

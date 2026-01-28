@@ -35,7 +35,35 @@ RSpec.describe CommitGpt do
         expect(commit_ai.send(:message, "test diff")).to eq("Add AiCommit module to generate AI-generated commit messages.")
       end
     end
+  describe "#generate_commit" do
+    context "with successful API response" do
+      it "gets commit text from OpenAI chat/completions API" do
+        allow(HTTParty).to receive(:post).and_return(
+          {
+            "id" => "chatcmpl-abc123",
+            "object" => "chat.completion",
+            "created" => 1_676_409_742,
+            "model" => "gpt-4o-mini",
+            "choices" => [
+              {
+                "index" => 0,
+                "message" => {
+                  "role" => "assistant",
+                  "content" => "Add AiCommit module to generate AI-generated commit messages."
+                },
+                "finish_reason" => "stop"
+              }
+            ],
+            "usage" => { "prompt_tokens" => 100, "completion_tokens" => 13, "total_tokens" => 113 }
+          }
+        )
+        expect(commit_ai.send(:message, "test diff")).to eq("Add AiCommit module to generate AI-generated commit messages.")
+      end
+    end
 
+    context "with API error response" do
+      it "returns nil on API error" do
+        allow(HTTParty).to receive(:post).and_return(
     context "with API error response" do
       it "returns nil on API error" do
         allow(HTTParty).to receive(:post).and_return(
