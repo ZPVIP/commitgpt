@@ -115,8 +115,19 @@ module CommitGpt
       diff = `git diff --cached . ":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"`.chomp
 
       if diff.empty?
-        puts "▲ No staged changes found. Make sure there are changes and run `git add .`".red
-        return nil
+        choice = prompt_no_staged_changes
+        case choice
+        when :add_all
+          puts "▲ Running git add .".yellow
+          system("git add .")
+          diff = `git diff --cached . ":(exclude)Gemfile.lock" ":(exclude)package-lock.json" ":(exclude)yarn.lock" ":(exclude)pnpm-lock.yaml"`.chomp
+          if diff.empty?
+            puts "▲ Still no changes to commit.".red
+            return nil
+          end
+        when :exit
+          return nil
+        end
       end
 
       if diff.length > @diff_len
@@ -135,13 +146,30 @@ module CommitGpt
       diff
     end
 
+    def prompt_no_staged_changes
+      puts "▲ No staged changes found.".yellow
+      prompt = TTY::Prompt.new
+      begin
+        prompt.select("Choose an option:") do |menu|
+          menu.choice "Run 'git add .' to stage all changes", :add_all
+          menu.choice "Exit (stage files manually)", :exit
+        end
+      rescue TTY::Reader::InputInterrupt, Interrupt
+        :exit
+      end
+    end
+
     def prompt_diff_handling(current_len, max_len)
       puts "▲ The diff is too large (#{current_len} chars, max #{max_len}).".yellow
       prompt = TTY::Prompt.new
-      prompt.select("Choose an option:") do |menu|
-        menu.choice "Use first #{max_len} characters to generate commit message", :truncate
-        menu.choice "Use unlimited characters (may fail or be slow)", :unlimited
-        menu.choice "Exit", :exit
+      begin
+        prompt.select("Choose an option:") do |menu|
+          menu.choice "Use first #{max_len} characters to generate commit message", :truncate
+          menu.choice "Use unlimited characters (may fail or be slow)", :unlimited
+          menu.choice "Exit", :exit
+        end
+      rescue TTY::Reader::InputInterrupt, Interrupt
+        :exit
       end
     end
 
