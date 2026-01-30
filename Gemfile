@@ -13,7 +13,7 @@ gem 'httparty'
 group :development, :test do
   gem 'rake', '~> 13.0'
   gem 'rspec', '~> 3.0'
-  gem "bundler-audit"
+  gem 'bundler-audit'
   gem 'rubocop'
 end
 
