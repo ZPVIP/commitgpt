@@ -63,9 +63,10 @@ echo "Step 4: Updating Formula/commitgpt.rb..."
 FORMULA_FILE="Formula/commitgpt.rb"
 
 # Update URL
-sed -i '' "s|url \".*\"|url \"$URL\"|" "$FORMULA_FILE"
+# Update URL
+sed -i '' "s|url '.*'|url '$URL'|" "$FORMULA_FILE"
 # Update SHA256
-sed -i '' "s|sha256 \".*\"|sha256 \"$SHA\"|" "$FORMULA_FILE"
+sed -i '' "s|sha256 '.*'|sha256 '$SHA'|" "$FORMULA_FILE"
 
 echo "Formula updated!"
 
