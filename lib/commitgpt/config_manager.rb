@@ -141,6 +141,22 @@ module CommitGpt
         save_main_config(main_config)
       end
 
+      # Get commit format configuration
+      def get_commit_format
+        return 'simple' unless config_exists?
+
+        main_config = YAML.load_file(main_config_path)
+        main_config['commit_format'] || 'simple'
+      end
+
+      # Set commit format configuration
+      def set_commit_format(format)
+        ensure_config_dir
+        main_config = config_exists? ? YAML.load_file(main_config_path) : { 'providers' => [], 'active_provider' => '' }
+        main_config['commit_format'] = format
+        save_main_config(main_config)
+      end
+
       private
 
       # Merge main config with local config (local overrides main)

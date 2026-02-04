@@ -86,6 +86,22 @@ module CommitGpt
       puts "\nModel selected: #{model}".green
     end
 
+    # Choose commit message format
+    def choose_format
+      prompt = TTY::Prompt.new
+
+      puts "\n▲ Choose git commit message format:\n".green
+
+      format = prompt.select('Select format:') do |menu|
+        menu.choice 'Simple - Concise commit message', 'simple'
+        menu.choice 'Conventional - Follow Conventional Commits specification', 'conventional'
+        menu.choice 'Gitmoji - Use Gitmoji emoji standard', 'gitmoji'
+      end
+
+      ConfigManager.set_commit_format(format)
+      puts "\n▲ Commit format set to: #{format}".green
+    end
+
     private
 
     # Select provider from list

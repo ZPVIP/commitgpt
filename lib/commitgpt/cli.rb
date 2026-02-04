@@ -13,11 +13,14 @@ module CommitGpt
     method_option :models, aliases: '-m', type: :boolean, desc: 'List/Select available models'
     method_option :verbose, aliases: '-v', type: :boolean, desc: 'Show git diff being sent to AI'
     method_option :provider, aliases: '-p', type: :boolean, desc: 'Switch active provider'
+    method_option :format, aliases: '-f', type: :boolean, desc: 'Choose commit message format'
     def generate
       if options[:provider]
         CommitGpt::SetupWizard.new.switch_provider
       elsif options[:models]
         CommitGpt::SetupWizard.new.change_model
+      elsif options[:format]
+        CommitGpt::SetupWizard.new.choose_format
       else
         CommitGpt::CommitAi.new.aicm(verbose: options[:verbose])
       end
@@ -38,6 +41,7 @@ module CommitGpt
       shell.say 'Options:'
       shell.say '  -m, --models             # Interactive model selection'
       shell.say '  -p, --provider           # Switch active provider'
+      shell.say '  -f, --format             # Choose commit message format'
       shell.say '  -v, --verbose            # Show git diff being sent to AI'
       shell.say ''
 
@@ -52,9 +56,11 @@ module CommitGpt
           shell.say "Bin Path: #{File.realpath($PROGRAM_NAME)}".gray
           shell.say ''
 
+          format = CommitGpt::ConfigManager.get_commit_format
           shell.say 'Current Configuration:'
           shell.say "  Provider:  #{config['name'].green}"
           shell.say "  Model:     #{config['model'].cyan}"
+          shell.say "  Format:    #{format.capitalize.yellow}"
           shell.say "  Base URL:  #{config['base_url']}"
           shell.say "  Diff Len:  #{config['diff_len']}"
           shell.say ''

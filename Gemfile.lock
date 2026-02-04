@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    commitgpt (0.3.3)
+    commitgpt (0.3.4)
       httparty (~> 0.24)
       thor (~> 1.4)
       tty-prompt (~> 0.23)

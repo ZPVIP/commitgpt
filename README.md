@@ -155,8 +155,44 @@ $ aicm -m
 $ aicm --models
 ```
 
+### Choose Commit Message Format
+Select your preferred commit message format:
+```bash
+$ aicm -f
+# or
+$ aicm --format
+```
+
+CommitGPT supports three commit message formats:
+- **Simple** - Concise commit message (default)
+- **Conventional** - Follow [Conventional Commits](https://www.conventionalcommits.org/) specification
+- **Gitmoji** - Use [Gitmoji](https://gitmoji.dev/) emoji standard
+
+Your selection will be saved in `~/.config/commitgpt/config.yml` and used for all future commits until changed.
+
+#### Format Examples
+
+**Simple:**
+```
+Add user authentication feature
+```
+
+**Conventional:**
+```
+feat: add user authentication feature
+fix: resolve login timeout issue
+docs: update API documentation
+```
+
+**Gitmoji:**
+```
+✨ add user authentication feature
+🐛 resolve login timeout issue
+📝 update API documentation
+```
+
 ### Check Configuration
-View your current configuration (Provider, Model, Base URL, Diff Len):
+View your current configuration (Provider, Model, Format, Base URL, Diff Len):
 ```bash
 $ aicm help
 ```

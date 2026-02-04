@@ -13,10 +13,109 @@ require_relative 'diff_helpers'
 # CommitGpt based on GPT-3
 module CommitGpt
   # Commit AI roboter based on GPT-3
-  class CommitAi
+  class CommitAi # rubocop:disable Metrics/ClassLength
     include DiffHelpers
 
-    attr_reader :api_key, :base_url, :model, :diff_len
+    attr_reader :api_key, :base_url, :model, :diff_len, :commit_format
+
+    # Commit format templates
+    COMMIT_FORMATS = {
+      'simple' => '<commit message>',
+      'conventional' => '<type>[optional (<scope>)]: <commit message>',
+      'gitmoji' => ':emoji: <commit message>'
+    }.freeze
+
+    # Conventional commit types based on aicommits implementation
+    CONVENTIONAL_TYPES = {
+      'docs' => 'Documentation only changes',
+      'style' => 'Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)',
+      'refactor' => 'A code change that improves code structure without changing functionality (renaming, restructuring classes/methods, extracting functions, etc)',
+      'perf' => 'A code change that improves performance',
+      'test' => 'Adding missing tests or correcting existing tests',
+      'build' => 'Changes that affect the build system or external dependencies',
+      'ci' => 'Changes to our CI configuration files and scripts',
+      'chore' => "Other changes that don't modify src or test files",
+      'revert' => 'Reverts a previous commit',
+      'feat' => 'A new feature',
+      'fix' => 'A bug fix'
+    }.freeze
+
+    # Gitmoji mappings based on gitmoji.dev
+    GITMOJI_TYPES = {
+      '🎨' => 'Improve structure / format of the code',
+      '⚡' => 'Improve performance',
+      '🔥' => 'Remove code or files',
+      '🐛' => 'Fix a bug',
+      '🚑' => 'Critical hotfix',
+      '✨' => 'Introduce new features',
+      '📝' => 'Add or update documentation',
+      '🚀' => 'Deploy stuff',
+      '💄' => 'Add or update the UI and style files',
+      '🎉' => 'Begin a project',
+      '✅' => 'Add, update, or pass tests',
+      '🔒' => 'Fix security or privacy issues',
+      '🔐' => 'Add or update secrets',
+      '🔖' => 'Release / Version tags',
+      '🚨' => 'Fix compiler / linter warnings',
+      '🚧' => 'Work in progress',
+      '💚' => 'Fix CI Build',
+      '⬇️' => 'Downgrade dependencies',
+      '⬆️' => 'Upgrade dependencies',
+      '📌' => 'Pin dependencies to specific versions',
+      '👷' => 'Add or update CI build system',
+      '📈' => 'Add or update analytics or track code',
+      '♻️' => 'Refactor code',
+      '➕' => 'Add a dependency',
+      '➖' => 'Remove a dependency',
+      '🔧' => 'Add or update configuration files',
+      '🔨' => 'Add or update development scripts',
+      '🌐' => 'Internationalization and localization',
+      '✏️' => 'Fix typos',
+      '💩' => 'Write bad code that needs to be improved',
+      '⏪' => 'Revert changes',
+      '🔀' => 'Merge branches',
+      '📦' => 'Add or update compiled files or packages',
+      '👽' => 'Update code due to external API changes',
+      '🚚' => 'Move or rename resources (e.g.: files, paths, routes)',
+      '📄' => 'Add or update license',
+      '💥' => 'Introduce breaking changes',
+      '🍱' => 'Add or update assets',
+      '♿' => 'Improve accessibility',
+      '💡' => 'Add or update comments in source code',
+      '🍻' => 'Write code drunkenly',
+      '💬' => 'Add or update text and literals',
+      '🗃' => 'Perform database related changes',
+      '🔊' => 'Add or update logs',
+      '🔇' => 'Remove logs',
+      '👥' => 'Add or update contributor(s)',
+      '🚸' => 'Improve user experience / usability',
+      '🏗' => 'Make architectural changes',
+      '📱' => 'Work on responsive design',
+      '🤡' => 'Mock things',
+      '🥚' => 'Add or update an easter egg',
+      '🙈' => 'Add or update a .gitignore file',
+      '📸' => 'Add or update snapshots',
+      '⚗' => 'Perform experiments',
+      '🔍' => 'Improve SEO',
+      '🏷' => 'Add or update types',
+      '🌱' => 'Add or update seed files',
+      '🚩' => 'Add, update, or remove feature flags',
+      '🥅' => 'Catch errors',
+      '💫' => 'Add or update animations and transitions',
+      '🗑' => 'Deprecate code that needs to be cleaned up',
+      '🛂' => 'Work on code related to authorization, roles and permissions',
+      '🩹' => 'Simple fix for a non-critical issue',
+      '🧐' => 'Data exploration/inspection',
+      '⚰' => 'Remove dead code',
+      '🧪' => 'Add a failing test',
+      '👔' => 'Add or update business logic',
+      '🩺' => 'Add or update healthcheck',
+      '🧱' => 'Infrastructure related changes',
+      '🧑‍💻' => 'Improve developer experience',
+      '💸' => 'Add sponsorships or money related infrastructure',
+      '🧵' => 'Add or update code related to multithreading or concurrency',
+      '🦺' => 'Add or update code related to validation'
+    }.freeze
 
     def initialize
       provider_config = ConfigManager.get_active_provider_config
@@ -32,6 +131,8 @@ module CommitGpt
         @model = nil
         @diff_len = 32_768
       end
+
+      @commit_format = ConfigManager.get_commit_format
     end
 
     def aicm(verbose: false)
@@ -158,21 +259,42 @@ module CommitGpt
         puts '▲ This is not a git repository'.red
         return false
       end
-
       true
     end
 
+    # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
     def generate_commit(diff = '')
+      # Build format-specific prompt
+      base_prompt = 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body.'
+
+      format_instruction = case @commit_format
+                           when 'conventional'
+                             "Choose a type from the type-to-description JSON below that best describes the git diff:\n#{JSON.pretty_generate(CONVENTIONAL_TYPES)}"
+                           when 'gitmoji'
+                             "Choose an emoji from the emoji-to-description JSON below that best describes the git diff:\n#{JSON.pretty_generate(GITMOJI_TYPES)}"
+                           else
+                             ''
+                           end
+
+      format_spec = "The output response must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
+
+      system_content = [
+        base_prompt,
+        'Message language: English.',
+        'Rules:',
+        '- Commit message must be a maximum of 100 characters.',
+        '- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.',
+        '- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text.',
+        '- Be specific: include concrete details (package names, versions, functionality) rather than generic statements.',
+        '- Return ONLY the commit message, nothing else.',
+        format_instruction,
+        format_spec
+      ].reject(&:empty?).join("\n")
+
       messages = [
         {
           role: 'system',
-          content: 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body. ' \
-                   "Message language: English. Rules:\n" \
-                   "- Commit message must be a maximum of 100 characters.\n" \
-                   "- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.\n" \
-                   "- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text. \n" \
-                   "- Be specific: include concrete details (package names, versions, functionality) rather than generic statements. \n" \
-                   '- Return ONLY the commit message, nothing else.'
+          content: system_content
         },
         {
           role: 'user',
@@ -373,5 +495,6 @@ module CommitGpt
       first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
       first_line&.gsub(/\A["']|["']\z/, '') || ''
     end
+    # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
   end
 end

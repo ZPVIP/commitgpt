@@ -3,7 +3,7 @@
 module CommitGpt
   # Provider presets for common AI providers
   PROVIDER_PRESETS = [
-    { label: 'Anthropic (Claude)', value: 'anthropic', base_url: 'https://api.anthropic.com/v1' },
+    { label: 'Anthropic Claude', value: 'anthropic', base_url: 'https://api.anthropic.com/v1' },
     { label: 'Cerebras', value: 'cerebras', base_url: 'https://api.cerebras.ai/v1' },
     { label: 'DeepSeek', value: 'deepseek', base_url: 'https://api.deepseek.com' },
     { label: 'Google AI', value: 'gemini', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai' },
