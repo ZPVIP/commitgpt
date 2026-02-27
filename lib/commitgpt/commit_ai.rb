@@ -276,7 +276,7 @@ module CommitGpt
       true
     end
 
-    # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
     def generate_commit(diff = '', chunk_label: nil)
       # Build format-specific prompt
       base_prompt = 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body.'
@@ -430,7 +430,7 @@ module CommitGpt
                     if chunk_label
                       print "◆ #{chunk_label}: ".magenta
                     else
-                      print "✦ Commit message: git commit -am \"".green
+                      print '✦ Commit message: git commit -am "'.green
                     end
                     printed_content_prefix = true
                   end
@@ -515,10 +515,9 @@ module CommitGpt
       first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
       first_line&.gsub(/\A["']|["']\z/, '') || ''
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+    # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
 
     # Synthesize a final commit message from multiple segment messages
-    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     def synthesize_commit(segment_messages)
       numbered = segment_messages.each_with_index.map { |msg, i| "#{i + 1}. #{msg}" }.join("\n")
 
@@ -641,6 +640,5 @@ module CommitGpt
       first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
       first_line&.gsub(/\A["']|["']\z/, '') || ''
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
   end
 end
