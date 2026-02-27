@@ -216,7 +216,6 @@ $ gem update commitgpt
 We support any OpenAI-compatible API. Presets available for:
 - **Cerebras** (Fast & Recommended)
 - **OpenAI** (Official)
-- **Apple** (Local via apple-to-openai)
 - **Ollama** (Local)
 - **Groq**
 - **DeepSeek**
@@ -224,7 +223,7 @@ We support any OpenAI-compatible API. Presets available for:
 - **Google AI (Gemini)**
 - **Mistral**
 - **OpenRouter**
-- **Local setups** (LM Studio, LLaMa.cpp, Llamafile)
+- **Local setups** (Apple via apple-to-openai, LM Studio, LLaMa.cpp, Llamafile)
 
 ### Recommended Providers
 
@@ -234,11 +233,16 @@ gpt-4o
 gpt-4o-mini
 ```
 
-**Cerebras** ([https://cloud.cerebras.ai](https://cloud.cerebras.ai)) ⭐ Recommended
+**Apple Local Models** (via [apple-to-openai](https://github.com/ZPVIP/apple-to-openai)) ⭐ Recommended, Free, fast, privacy-focused
 ```
-zai-glm-4.7          # ⭐ Best for commit messages - fast & accurate
-llama3.1-8b
-llama-3.3-70b
+apple-intelligence  # Max Context Length: 4,096 tokens
+```
+> **Note**: Due to the context window limits of Apple's local models, it is highly recommended to set your max diff length (`diff_len`) to `10000` during setup. When prompted for large diffs, select the **Smart chunked mode** to avoid context window overflow.
+
+**Cerebras** ([https://cloud.cerebras.ai](https://cloud.cerebras.ai))
+```
+llama3.1-8b          # Max Context Length:  8,192 tokens
+gpt-oss-120b         # Max Context Length: 65,536 tokens
 ```
 
 **Groq** ([https://console.groq.com](https://console.groq.com))
@@ -246,10 +250,6 @@ llama-3.3-70b
 llama-3.3-70b-versatile
 llama-3.1-8b-instant
 ```
-
-**Apple Local Models** (via [apple-to-openai](https://github.com/ZPVIP/apple-to-openai))
-
-> **Note**: Due to the context window limits of Apple's local models, it is highly recommended to set your max diff length (`diff_len`) to `10000` during setup. When prompted for large diffs, select the **Smart chunked mode** to avoid errors.
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts/system instructions for generating conventional commit messages.
