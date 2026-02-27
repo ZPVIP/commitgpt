@@ -102,8 +102,8 @@ module CommitGpt
         save_local_config(local_config)
 
         # Remind user to add config.local.yml to .gitignore
-        puts '▲ Generated default configuration files.'.green
-        puts '▲ Remember to add ~/.config/commitgpt/config.local.yml to your .gitignore'.yellow
+        puts '✔ Generated default configuration files.'.green
+        puts '⚠ Remember to add ~/.config/commitgpt/config.local.yml to your .gitignore'.yellow
       end
 
       # Get list of configured providers (with API keys)

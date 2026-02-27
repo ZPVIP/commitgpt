@@ -70,19 +70,19 @@ RSpec.describe CommitGpt do
       end
     end
 
-    context 'without API key configured' do
+    context 'without model configured' do
       before do
         allow(CommitGpt::ConfigManager).to receive(:config_exists?).and_return(true)
         allow(CommitGpt::ConfigManager).to receive(:get_active_provider_config).and_return({
                                                                                              'api_key' => nil,
                                                                                              'base_url' => 'https://api.openai.com/v1',
-                                                                                             'model' => 'gpt-4o-mini'
+                                                                                             'model' => nil
                                                                                            })
       end
 
       it 'requires running setup' do
-        commit_ai_no_key = CommitGpt::CommitAi.new
-        expect { commit_ai_no_key.send(:welcome) }.to output(/aicm setup/).to_stdout
+        commit_ai_no_model = CommitGpt::CommitAi.new
+        expect { commit_ai_no_model.send(:welcome) }.to output(/aicm setup/).to_stdout
       end
     end
   end

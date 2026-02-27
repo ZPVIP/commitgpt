@@ -28,7 +28,7 @@ module CommitGpt
       configured = ConfigManager.configured_providers
 
       if configured.empty?
-        puts "▲ No providers configured. Please run 'aicm setup' first.".red
+        puts "✖ No providers configured. Please run 'aicm setup' first.".red
         return
       end
 
@@ -69,7 +69,7 @@ module CommitGpt
       provider_config = ConfigManager.get_active_provider_config
 
       if provider_config.nil? || provider_config['api_key'].nil? || provider_config['api_key'].empty?
-        puts "▲ No active provider configured. Please run 'aicm setup'.".red
+        puts "✖ No active provider configured. Please run 'aicm setup'.".red
         return
       end
 
@@ -90,7 +90,7 @@ module CommitGpt
     def choose_format
       prompt = TTY::Prompt.new
 
-      puts "\n▲ Choose git commit message format:\n".green
+      puts "\n→ Choose git commit message format:\n".green
 
       format = prompt.select('Select format:') do |menu|
         menu.choice 'Simple - Concise commit message', 'simple'
@@ -99,7 +99,7 @@ module CommitGpt
       end
 
       ConfigManager.set_commit_format(format)
-      puts "\n▲ Commit format set to: #{format}".green
+      puts "\n✔ Commit format set to: #{format}".green
     end
 
     private
@@ -264,20 +264,20 @@ module CommitGpt
             models = response['data'] || []
             models = models.map { |m| m['id'] }.compact.sort
           else
-            puts "▲ Failed to fetch models: HTTP #{response.code}".red
+            puts "✖ Failed to fetch models: HTTP #{response.code}".red
             return nil
           end
         end
       rescue Timeout::Error
-        puts '▲ Connection timeout (5s). Please check your network, base_url, and api_key.'.red
+        puts '✖ Connection timeout (5s). Please check your network, base_url, and api_key.'.red
         exit(0)
       rescue StandardError => e
-        puts "▲ Error fetching models: #{e.message}".red
+        puts "✖ Error fetching models: #{e.message}".red
         exit(0)
       end
 
       if models.nil? || models.empty?
-        puts '▲ No models found. Please check your configuration.'.red
+        puts '✖ No models found. Please check your configuration.'.red
         exit(0)
       end
 

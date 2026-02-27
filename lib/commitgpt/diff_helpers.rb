@@ -21,11 +21,11 @@ module CommitGpt
           choice = prompt_no_staged_changes
           case choice
           when :add_all
-            puts '▲ Running git add .'.yellow
+            puts '→ Running git add .'.yellow
             system('git add .')
             diff_cached = `git diff --cached . #{exclusions}`.chomp
             if diff_cached.empty?
-              puts '▲ Still no changes to commit.'.red
+              puts '✖ Still no changes to commit.'.red
               return nil
             end
           when :exit
@@ -33,7 +33,7 @@ module CommitGpt
           end
         else
           # Scenario: Mixed state (some staged, some not)
-          puts '▲ You have both staged and unstaged changes:'.yellow
+          puts '⚠ You have both staged and unstaged changes:'.yellow
 
           staged_files = `git diff --cached --name-status . #{exclusions}`.chomp
           unstaged_files = `git diff --name-status . #{exclusions}`.chomp
@@ -54,7 +54,7 @@ module CommitGpt
 
           case choice
           when :add_all
-            puts '▲ Running git add .'.yellow
+            puts '→ Running git add .'.yellow
             system('git add .')
             diff_cached = `git diff --cached . #{exclusions}`.chomp
           when :exit
@@ -67,7 +67,7 @@ module CommitGpt
         # git status --porcelain includes untracked files
         git_status = `git status --porcelain`.chomp
         if git_status.empty?
-          puts '▲ No changes to commit. Working tree clean.'.yellow
+          puts '⚠ No changes to commit. Working tree clean.'.yellow
           return nil
         else
           # Only untracked files? Or ignored files?
@@ -76,7 +76,7 @@ module CommitGpt
           choice = prompt_no_staged_changes
           case choice
           when :add_all
-            puts '▲ Running git add .'.yellow
+            puts '→ Running git add .'.yellow
             system('git add .')
             diff_cached = `git diff --cached . #{exclusions}`.chomp
           when :exit
@@ -93,11 +93,14 @@ module CommitGpt
       if diff.length > diff_len
         choice = prompt_diff_handling(diff.length, diff_len)
         case choice
+        when :chunked
+          @chunked_mode = true
+          puts "→ Smart chunked mode: splitting #{diff.length} chars into ~#{(diff.length.to_f / diff_len).ceil} segments...".yellow
         when :truncate
-          puts "▲ Truncating diff to #{diff_len} chars...".yellow
+          puts "→ Truncating diff to #{diff_len} chars...".yellow
           diff = diff[0...diff_len]
         when :unlimited
-          puts "▲ Using full diff (#{diff.length} chars)...".yellow
+          puts "→ Using full diff (#{diff.length} chars)...".yellow
         when :exit
           return nil
         end
@@ -107,7 +110,7 @@ module CommitGpt
     end
 
     def prompt_no_staged_changes
-      puts '▲ No staged changes found (but unstaged/untracked files exist).'.yellow
+      puts '⚠ No staged changes found (but unstaged/untracked files exist).'.yellow
       prompt = TTY::Prompt.new
       begin
         prompt.select('Choose an option:') do |menu|
@@ -120,10 +123,11 @@ module CommitGpt
     end
 
     def prompt_diff_handling(current_len, max_len)
-      puts "▲ The diff is too large (#{current_len} chars, max #{max_len}).".yellow
+      puts "⚠ The diff is too large (#{current_len} chars, max #{max_len}).".yellow
       prompt = TTY::Prompt.new
       begin
         prompt.select('Choose an option:') do |menu|
+          menu.choice 'Smart chunked: split into segments and synthesize (recommended)', :chunked
           menu.choice "Use first #{max_len} characters to generate commit message", :truncate
           menu.choice 'Use unlimited characters (may fail or be slow)', :unlimited
           menu.choice 'Exit', :exit
@@ -131,6 +135,21 @@ module CommitGpt
       rescue TTY::Reader::InputInterrupt, Interrupt
         :exit
       end
+    end
+
+    def split_diff_by_length(diff, max_len)
+      chunks = []
+      current_chunk = ''
+
+      diff.each_line do |line|
+        if current_chunk.length + line.length > max_len && !current_chunk.empty?
+          chunks << current_chunk
+          current_chunk = ''
+        end
+        current_chunk += line
+      end
+      chunks << current_chunk unless current_chunk.empty?
+      chunks
     end
 
     def detect_lock_file_changes

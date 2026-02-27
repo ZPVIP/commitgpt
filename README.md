@@ -216,6 +216,7 @@ $ gem update commitgpt
 We support any OpenAI-compatible API. Presets available for:
 - **Cerebras** (Fast & Recommended)
 - **OpenAI** (Official)
+- **Apple** (Local via apple-to-openai)
 - **Ollama** (Local)
 - **Groq**
 - **DeepSeek**
@@ -245,6 +246,10 @@ llama-3.3-70b
 llama-3.3-70b-versatile
 llama-3.1-8b-instant
 ```
+
+**Apple Local Models** (via [apple-to-openai](https://github.com/ZPVIP/apple-to-openai))
+
+> **Note**: Due to the context window limits of Apple's local models, it is highly recommended to set your max diff length (`diff_len`) to `10000` during setup. When prompted for large diffs, select the **Smart chunked mode** to avoid errors.
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts/system instructions for generating conventional commit messages.

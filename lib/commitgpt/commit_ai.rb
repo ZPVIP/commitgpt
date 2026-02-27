@@ -139,7 +139,7 @@ module CommitGpt
       exit(1) unless welcome
       diff = git_diff || exit(1)
       if verbose
-        puts "▲ Git diff (#{diff.length} chars):".cyan
+        puts "→ Git diff (#{diff.length} chars):".cyan
         puts diff
         puts "\n"
       end
@@ -151,7 +151,7 @@ module CommitGpt
         case action
         when :commit
           commit_command = "git commit -m \"#{ai_commit_message}\""
-          puts "\n▲ Executing: #{commit_command}".yellow
+          puts "\n→ Executing: #{commit_command}".yellow
           system(commit_command)
           puts "\n\n"
           puts `git log -1`
@@ -168,11 +168,11 @@ module CommitGpt
              puts "\n"
              puts `git log -1`
           else
-             puts '▲ Commit aborted (empty message).'.red
+             puts '✖ Commit aborted (empty message).'.red
           end
           break
         when :exit
-          puts '▲ Exit without commit.'.yellow
+          puts '⚠ Exit without commit.'.yellow
           break
         end
       end
@@ -190,7 +190,7 @@ module CommitGpt
         models = response['data'] || []
         models.each { |m| puts m['id'] }
       rescue StandardError => e
-        puts "▲ Failed to list models: #{e.message}".red
+        puts "✖ Failed to list models: #{e.message}".red
       end
     end
 
@@ -206,7 +206,7 @@ module CommitGpt
         models = response['data'] || []
         models.each { |m| puts m['id'] }
       rescue StandardError => e
-        puts "▲ Failed to list models: #{e.message}".red
+        puts "✖ Failed to list models: #{e.message}".red
       end
     end
 
@@ -228,42 +228,56 @@ module CommitGpt
     end
 
     def message(diff = nil)
-      generate_commit(diff)
+      return generate_commit(diff) unless @chunked_mode
+
+      # Reserve space for system prompt overhead (~20% of diff_len)
+      chunk_size = [(@diff_len * 0.8).to_i, 4000].max
+      chunks = split_diff_by_length(diff, chunk_size)
+      segment_messages = []
+
+      puts "→ Splitting into #{chunks.length} segments (#{chunk_size} chars each)...".cyan
+
+      chunks.each_with_index do |chunk, idx|
+        puts "\n◆ Generating message for segment #{idx + 1}/#{chunks.length}...".magenta
+        msg = generate_commit(chunk, chunk_label: "Segment #{idx + 1}/#{chunks.length}")
+        return nil if msg.nil?
+
+        segment_messages << msg
+        puts ''
+      end
+
+      puts "\n→ Synthesizing final commit message from #{segment_messages.length} segments...".cyan
+      synthesize_commit(segment_messages)
     end
 
     def welcome
-      puts "\n▲ Welcome to AI Commits!".green
+      puts "\n✦ Welcome to AI Commits!".green
 
       # Check if config exists
       unless ConfigManager.config_exists?
-        puts '▲ Configuration not found. Generating default config...'.yellow
+        puts '⚠ Configuration not found. Generating default config...'.yellow
         ConfigManager.generate_default_configs
-        puts "▲ Please run 'aicm setup' to configure your provider.".red
+        puts "✖ Please run 'aicm setup' to configure your provider.".red
         return false
       end
 
       # Check if active provider is configured
-      if @api_key.nil? || @api_key.empty?
-        puts "▲ No active provider configured. Please run 'aicm setup'.".red
-        return false
-      end
-
       if @model.nil? || @model.empty?
-        puts "▲ No model selected. Please run 'aicm setup'.".red
+        puts "✖ No model selected. Please run 'aicm setup'.".red
         return false
       end
 
       begin
         `git rev-parse --is-inside-work-tree`
       rescue StandardError
-        puts '▲ This is not a git repository'.red
+        puts '✖ This is not a git repository'.red
         return false
       end
       true
     end
 
     # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
-    def generate_commit(diff = '')
+    def generate_commit(diff = '', chunk_label: nil)
       # Build format-specific prompt
       base_prompt = 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body.'
 
@@ -323,7 +337,9 @@ module CommitGpt
       end
 
       # Initial UI feedback (only on first try)
-      puts '....... Generating your AI commit message ......'.gray unless defined?(@is_retrying) && @is_retrying
+      total_chars = system_content.length + diff.to_s.length
+      puts "  ....... System prompt: #{system_content.length} chars, Diff chunk: #{diff.to_s.length} chars, Total: #{total_chars} chars".gray
+      puts '  ....... Generating your AI commit message'.gray unless defined?(@is_retrying) && @is_retrying
 
       full_content = ''
       full_reasoning = ''
@@ -364,12 +380,12 @@ module CommitGpt
             end
 
             if can_disable_reasoning && (error_msg =~ /parameter|reasoning|unsupported/i || response.code == '400')
-               puts "▲ Provider does not support 'disable_reasoning'. Updating config and retrying...".yellow
+               puts "⚠ Provider does not support 'disable_reasoning'. Updating config and retrying...".yellow
                ConfigManager.update_provider(provider_config['name'], { 'can_disable_reasoning' => false })
                @is_retrying = true
                return generate_commit(diff)
             else
-               puts "▲ API Error: #{error_msg}".red
+               puts "✖ API Error: #{error_msg}".red
                return nil
             end
           end
@@ -411,7 +427,11 @@ module CommitGpt
                   end
 
                   unless printed_content_prefix
-                    print "\n▲ Commit message: git commit -am \"".green
+                    if chunk_label
+                      print "◆ #{chunk_label}: ".magenta
+                    else
+                      print "✦ Commit message: git commit -am \"".green
+                    end
                     printed_content_prefix = true
                   end
 
@@ -421,7 +441,7 @@ module CommitGpt
                     break
                   end
 
-                  print content_chunk.green
+                  print chunk_label ? content_chunk.magenta : content_chunk.green
                   full_content += content_chunk
                   $stdout.flush
                 end
@@ -435,22 +455,22 @@ module CommitGpt
           end
         end
       rescue StandardError => e
-        puts "▲ Error: #{e.message}".red
+        puts "✖ Error: #{e.message}".red
         return nil
       end
 
       # Close the quote
-      puts '"'.green if printed_content_prefix
+      puts(chunk_label ? '' : '"'.green) if printed_content_prefix
 
       # Post-processing Logic (Retry if empty content)
       if (full_content.nil? || full_content.strip.empty?) && (full_reasoning && !full_reasoning.strip.empty?)
           if can_disable_reasoning
-              puts "\n▲ Model returned reasoning despite 'disable_reasoning: true'. Updating config and retrying...".yellow
+              puts "\n⚠ Model returned reasoning despite 'disable_reasoning: true'. Updating config and retrying...".yellow
               ConfigManager.update_provider(provider_config['name'], { 'can_disable_reasoning' => false })
               @is_retrying = true
               return generate_commit(diff)
           else
-              puts "\n▲ Model output truncated (Reasoning consumed all #{configured_max_tokens} tokens).".red
+              puts "\n✖ Model output truncated (Reasoning consumed all #{configured_max_tokens} tokens).".red
               prompt = TTY::Prompt.new
               choice = prompt.select('Choose an action:') do |menu|
                 menu.choice "Double max_tokens to #{configured_max_tokens * 2}", :double
@@ -468,7 +488,7 @@ module CommitGpt
                         end
 
               if new_max
-                 puts "▲ Updating max_tokens to #{new_max} and retrying...".yellow
+                 puts "→ Updating max_tokens to #{new_max} and retrying...".yellow
                  ConfigManager.update_provider(provider_config['name'], { 'max_tokens' => new_max })
                  @is_retrying = true
                  return generate_commit(diff)
@@ -478,13 +498,13 @@ module CommitGpt
       end
 
       if full_content.empty? && full_reasoning.empty?
-        puts '▲ No response from AI.'.red
+        puts '✖ No response from AI.'.red
         return nil
       end
 
       # Print usage info if available (saved from stream or approximated)
       if defined?(@last_usage) && @last_usage
-        puts "\n...... Tokens: #{@last_usage['total_tokens']} (Prompt: #{@last_usage['prompt_tokens']}, Completion: #{@last_usage['completion_tokens']})\n\n".gray
+        puts "  ....... Tokens: #{@last_usage['total_tokens']} (Prompt: #{@last_usage['prompt_tokens']}, Completion: #{@last_usage['completion_tokens']})".gray
         @last_usage = nil
       end
 
@@ -496,5 +516,131 @@ module CommitGpt
       first_line&.gsub(/\A["']|["']\z/, '') || ''
     end
     # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+
+    # Synthesize a final commit message from multiple segment messages
+    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    def synthesize_commit(segment_messages)
+      numbered = segment_messages.each_with_index.map { |msg, i| "#{i + 1}. #{msg}" }.join("\n")
+
+      format_instruction = case @commit_format
+                           when 'conventional'
+                             "The output must follow Conventional Commits format:\n#{COMMIT_FORMATS['conventional']}"
+                           when 'gitmoji'
+                             "The output must use Gitmoji format:\n#{COMMIT_FORMATS['gitmoji']}"
+                           else
+                             ''
+                           end
+
+      system_content = [
+        'You are given multiple commit messages generated from different segments of a single large git diff.',
+        'Synthesize them into ONE concise, unified git commit message that captures the overall change.',
+        'Rules:',
+        '- Maximum 100 characters.',
+        '- Present tense.',
+        '- Be specific: include concrete details rather than generic statements.',
+        '- Return ONLY the commit message, nothing else. No quotes, no explanations.',
+        format_instruction
+      ].reject(&:empty?).join("\n")
+
+      messages = [
+        { role: 'system', content: system_content },
+        { role: 'user', content: "Synthesize these segment commit messages into one:\n\n#{numbered}" }
+      ]
+
+      provider_config = ConfigManager.get_active_provider_config
+      can_disable_reasoning = provider_config.key?('can_disable_reasoning') ? provider_config['can_disable_reasoning'] : true
+
+      payload = {
+        model: @model,
+        messages: messages,
+        temperature: 0.5,
+        stream: true
+      }
+
+      if can_disable_reasoning
+        payload[:disable_reasoning] = true
+        payload[:max_tokens] = 300
+      else
+        payload[:max_tokens] = provider_config['max_tokens'] || 2000
+      end
+
+      full_content = ''
+      printed_content_prefix = false
+      stop_stream = false
+
+      uri = URI("#{@base_url}/chat/completions")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == 'https')
+      http.read_timeout = 120
+
+      request = Net::HTTP::Post.new(uri)
+      request['Content-Type'] = 'application/json'
+      request['Authorization'] = "Bearer #{@api_key}" if @api_key
+      request.body = payload.to_json
+
+      begin
+        http.request(request) do |response|
+          if response.code != '200'
+            error_body = response.read_body
+            puts "✖ API Error: #{error_body}".red
+            return nil
+          end
+
+          buffer = ''
+          response.read_body do |chunk|
+            break if stop_stream
+
+            buffer += chunk
+            while (line_end = buffer.index("\n"))
+              line = buffer.slice!(0, line_end + 1).strip
+              next if line.empty?
+              next unless line.start_with?('data: ')
+
+              data_str = line[6..]
+              next if data_str == '[DONE]'
+
+              begin
+                data = JSON.parse(data_str)
+                delta = data.dig('choices', 0, 'delta')
+                next unless delta
+
+                content_chunk = delta['content']
+                if content_chunk && !content_chunk.empty?
+                  unless printed_content_prefix
+                    print "\n✦ Commit message: git commit -am \"".green
+                    printed_content_prefix = true
+                  end
+
+                  if full_content.length + content_chunk.length > 300
+                    stop_stream = true
+                    break
+                  end
+
+                  print content_chunk.green
+                  full_content += content_chunk
+                  $stdout.flush
+                end
+              rescue JSON::ParserError
+                # Partial JSON, wait for more data
+              end
+            end
+          end
+        end
+      rescue StandardError => e
+        puts "✖ Error: #{e.message}".red
+        return nil
+      end
+
+      puts '"'.green if printed_content_prefix
+
+      if full_content.strip.empty?
+        puts '✖ No response from AI during synthesis.'.red
+        return nil
+      end
+
+      first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
+      first_line&.gsub(/\A["']|["']\z/, '') || ''
+    end
+    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
   end
 end
