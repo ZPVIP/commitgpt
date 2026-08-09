@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [0.3.8] - 2026-08-08
+
+### Changed
+- Increased the model list fetch timeout from 5s to 30s, so slower providers can finish responding during setup
+
 ## [0.3.7] - 2026-08-08
 
 ### Added

@@ -10,6 +10,9 @@ require_relative 'string'
 module CommitGpt
   # Interactive setup wizard for configuring AI providers
   class SetupWizard
+    # Seconds to wait when fetching the provider's model list
+    MODEL_FETCH_TIMEOUT = 30
+
     def initialize
       @prompt = TTY::Prompt.new
     end
@@ -251,7 +254,7 @@ module CommitGpt
 
       models = nil
       begin
-        Timeout.timeout(5) do
+        Timeout.timeout(MODEL_FETCH_TIMEOUT) do
           headers = {
             'Content-Type' => 'application/json',
             'User-Agent' => "Ruby/#{RUBY_VERSION}"
@@ -269,7 +272,7 @@ module CommitGpt
           end
         end
       rescue Timeout::Error
-        puts '✖ Connection timeout (5s). Please check your network, base_url, and api_key.'.red
+        puts "✖ Connection timeout (#{MODEL_FETCH_TIMEOUT}s). Please check your network, base_url, and api_key.".red
         exit(0)
       rescue StandardError => e
         puts "✖ Error fetching models: #{e.message}".red
