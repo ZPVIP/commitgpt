@@ -223,6 +223,7 @@ We support any OpenAI-compatible API. Presets available for:
 - **Google AI (Gemini)**
 - **Mistral**
 - **OpenRouter**
+- **AMD Radeon (China)**
 - **Local setups** (Apple via apple-to-openai, LM Studio, LLaMa.cpp, Llamafile)
 
 ### Recommended Providers
@@ -249,6 +250,19 @@ gpt-oss-120b         # Max Context Length: 65,536 tokens
 ```
 llama-3.3-70b-versatile
 llama-3.1-8b-instant
+```
+
+**AMD Radeon (China)** — free OpenAI-compatible API
+
+Get an API key at [https://developer.amd.com.cn/radeon/tokenfactory](https://developer.amd.com.cn/radeon/tokenfactory)
+
+> **Note**: Registration requires **both an email address and a Chinese (+86) mobile phone number**. Without a Chinese phone number you cannot complete sign-up, so this provider is only usable if you have one.
+
+```
+DeepSeek-V4-Flash
+Qwen3.6-35B-A3B
+MiniCPM5-1B
+MiniCPM-V46
 ```
 
 ## How It Works

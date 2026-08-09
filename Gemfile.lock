@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    commitgpt (0.3.5)
+    commitgpt (0.3.7)
       httparty (~> 0.24)
       thor (~> 1.4)
       tty-prompt (~> 0.23)
@@ -101,4 +101,4 @@ DEPENDENCIES
   thor
 
 BUNDLED WITH
-   2.4.4
+  4.0.12

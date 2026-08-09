@@ -120,7 +120,15 @@ module CommitGpt
         # Update main config
         main_config = YAML.load_file(main_config_path)
         provider = main_config['providers'].find { |p| p['name'] == provider_name }
-        provider&.merge!(main_attrs)
+        if provider
+          provider.merge!(main_attrs)
+        else
+          # Preset added after this config file was generated
+          preset = PROVIDER_PRESETS.find { |p| p[:value] == provider_name }
+          defaults = { 'name' => provider_name, 'model' => '', 'diff_len' => 32_768 }
+          defaults['base_url'] = preset[:base_url] if preset
+          main_config['providers'] << defaults.merge(main_attrs)
+        end
         save_main_config(main_config)
 
         # Update local config
