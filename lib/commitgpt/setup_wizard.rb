@@ -10,9 +10,6 @@ require_relative 'string'
 module CommitGpt
   # Interactive setup wizard for configuring AI providers
   class SetupWizard
-    # Seconds to wait when fetching the provider's model list
-    MODEL_FETCH_TIMEOUT = 30
-
     def initialize
       @prompt = TTY::Prompt.new
     end
@@ -22,6 +19,7 @@ module CommitGpt
       ConfigManager.ensure_config_dir
       ConfigManager.generate_default_configs unless ConfigManager.config_exists?
 
+      prompt_model_fetch_timeout
       provider_choice = select_provider
       configure_provider(provider_choice)
     end
@@ -248,13 +246,30 @@ module CommitGpt
       end
     end
 
+    # Ask how long to wait when fetching the model list, and persist it
+    def prompt_model_fetch_timeout
+      current = ConfigManager.get_model_fetch_timeout
+
+      seconds = @prompt.ask('Set the timeout (seconds) for fetching the model list:') do |q|
+        q.default current.to_s
+        q.convert :int
+        q.validate ->(input) { input.to_i.positive? }
+        q.messages[:valid?] = 'Timeout must be a positive number of seconds'
+      end
+
+      seconds = current unless seconds.is_a?(Integer) && seconds.positive?
+      ConfigManager.set_model_fetch_timeout(seconds)
+      seconds
+    end
+
     # Fetch models from provider with timeout
     def fetch_models_with_timeout(base_url, api_key)
+      timeout = ConfigManager.get_model_fetch_timeout
       puts 'Fetching available models...'.gray
 
       models = nil
       begin
-        Timeout.timeout(MODEL_FETCH_TIMEOUT) do
+        Timeout.timeout(timeout) do
           headers = {
             'Content-Type' => 'application/json',
             'User-Agent' => "Ruby/#{RUBY_VERSION}"
@@ -272,7 +287,8 @@ module CommitGpt
           end
         end
       rescue Timeout::Error
-        puts "✖ Connection timeout (#{MODEL_FETCH_TIMEOUT}s). Please check your network, base_url, and api_key.".red
+        puts "✖ Connection timeout (#{timeout}s). Please check your network, base_url, and api_key.".red
+        puts "  Run 'aicm setup' again to raise the timeout.".gray
         exit(0)
       rescue StandardError => e
         puts "✖ Error fetching models: #{e.message}".red

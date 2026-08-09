@@ -63,6 +63,7 @@ module CommitGpt
           shell.say "  Format:    #{format.capitalize.yellow}"
           shell.say "  Base URL:  #{config['base_url']}"
           shell.say "  Diff Len:  #{config['diff_len']}"
+          shell.say "  Timeout:   #{CommitGpt::ConfigManager.get_model_fetch_timeout}s"
           shell.say ''
         end
       rescue StandardError

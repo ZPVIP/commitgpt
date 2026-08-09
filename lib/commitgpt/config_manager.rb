@@ -8,6 +8,9 @@ require_relative 'string'
 module CommitGpt
   # Manages configuration files for CommitGPT
   class ConfigManager
+    # Seconds to wait when fetching a provider's model list
+    DEFAULT_MODEL_FETCH_TIMEOUT = 30
+
     class << self
       # Get the config directory path
       def config_dir
@@ -162,6 +165,23 @@ module CommitGpt
         ensure_config_dir
         main_config = config_exists? ? YAML.load_file(main_config_path) : { 'providers' => [], 'active_provider' => '' }
         main_config['commit_format'] = format
+        save_main_config(main_config)
+      end
+
+      # Get the model list fetch timeout (seconds)
+      def get_model_fetch_timeout
+        return DEFAULT_MODEL_FETCH_TIMEOUT unless config_exists?
+
+        main_config = YAML.load_file(main_config_path)
+        timeout = main_config['model_fetch_timeout'].to_i
+        timeout.positive? ? timeout : DEFAULT_MODEL_FETCH_TIMEOUT
+      end
+
+      # Set the model list fetch timeout (seconds)
+      def set_model_fetch_timeout(seconds)
+        ensure_config_dir
+        main_config = config_exists? ? YAML.load_file(main_config_path) : { 'providers' => [], 'active_provider' => '' }
+        main_config['model_fetch_timeout'] = seconds
         save_main_config(main_config)
       end
 

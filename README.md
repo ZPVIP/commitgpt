@@ -121,10 +121,13 @@ $ aicm setup
 ```
 
 You'll be guided to:
-1. Choose an AI provider (Presets: Cerebras, OpenAI, Ollama, Groq, etc.)
-2. Enter your API Key (stored securely in `config.local.yml`)
-3. Select a model interactively
-4. Set maximum diff length
+1. Set the model list fetch timeout in seconds (defaults to 30; raise it if a provider is slow to respond)
+2. Choose an AI provider (Presets: Cerebras, OpenAI, Ollama, Groq, etc.)
+3. Enter your API Key (stored securely in `config.local.yml`)
+4. Select a model interactively
+5. Set maximum diff length
+
+The timeout is saved as a top-level `model_fetch_timeout` key in `config.yml` and applies to every provider, including `aicm -p` and `aicm -m`. You can also edit it there directly.
 
 **Note:** Please add `~/.config/commitgpt/config.local.yml` to your `.gitignore` if you are syncing your home directory, as it contains your API keys.
 

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.9] - 2026-08-08
+
+### Added
+- The model list fetch timeout is now configurable: `aicm setup` asks for it as its first step and stores it as `model_fetch_timeout` in `config.yml`, applying to `aicm -p` and `aicm -m` as well
+- `aicm --help` shows the configured timeout
+
 ## [0.3.8] - 2026-08-08
 
 ### Changed
