@@ -3,8 +3,8 @@
 class Commitgpt < Formula
   desc 'A CLI AI that writes git commit messages for you'
   homepage 'https://github.com/ZPVIP/commitgpt'
-  url 'https://github.com/ZPVIP/commitgpt/archive/refs/tags/v0.3.9.tar.gz'
-  sha256 'c7d76191d3863a6390ef4c479cef97f4b627c777d41990cf86d89c8cbadb9293'
+  url 'https://github.com/ZPVIP/commitgpt/archive/refs/tags/v0.3.10.tar.gz'
+  sha256 'fded2532ef40efcfd58594b7d78c40b259fad117dd680f802ed77c167c56dcfd'
   license 'MIT'
 
   depends_on 'ruby'
