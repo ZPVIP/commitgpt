@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.3.11] - 2026-08-09
+
 ### Added
 - Commit message detail level, chosen with `aicm -d` / `aicm --detail` and stored as `commit_detail` in `config.yml`: `concise` keeps the current subject-only message, `detailed` adds an explanatory paragraph and a bullet list of notable changes
 - `aicm --help` shows the configured detail level
