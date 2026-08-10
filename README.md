@@ -17,8 +17,11 @@ The easiest way to install and keep CommitGPT updated.
 
 ```bash
 brew tap ZPVIP/commitgpt https://github.com/ZPVIP/commitgpt
+brew trust zpvip/commitgpt
 brew install commitgpt
 ```
+
+> **Note**: Recent Homebrew versions refuse to load formulae from third-party taps until you trust them, so `brew trust` is required before installing.
 
 **Upgrade:**
 
