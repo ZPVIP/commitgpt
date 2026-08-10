@@ -10,6 +10,18 @@ require_relative 'string'
 module CommitGpt
   # Interactive setup wizard for configuring AI providers
   class SetupWizard
+    # Diff bytes per context token. Code and CJK pack more bytes into a token
+    # than English prose, so this stays deliberately conservative.
+    DIFF_BYTES_PER_TOKEN = 2
+
+    # Ceiling for the suggested diff length. Past this a single request gets
+    # slow and one commit message stops describing the change usefully, so
+    # chunked mode is the better answer than a bigger window.
+    MAX_SUGGESTED_DIFF_LEN = 131_072
+
+    # Used when the model's context window is unknown
+    FALLBACK_DIFF_LEN = 32_768
+
     def initialize
       @prompt = TTY::Prompt.new
     end
@@ -45,13 +57,13 @@ module CommitGpt
       provider = config['providers'].find { |p| p['name'] == selected }
 
       # Fetch models and let user select
-      models = fetch_models_with_timeout(provider['base_url'], provider['api_key'])
+      models = fetch_models_with_timeout(provider['base_url'], provider['api_key'], preset_models(selected))
       return if models.nil?
 
       model = select_model(models, provider['model'])
 
       # Prompt for diff length
-      diff_len = prompt_diff_len(provider['diff_len'] || 32_768)
+      diff_len = prompt_diff_len(default_diff_len(selected, model, provider['diff_len']))
 
       # Update config
       ConfigManager.update_provider(selected, { 'model' => model, 'diff_len' => diff_len })
@@ -75,7 +87,8 @@ module CommitGpt
       end
 
       # Fetch models and let user select
-      models = fetch_models_with_timeout(provider_config['base_url'], provider_config['api_key'])
+      models = fetch_models_with_timeout(provider_config['base_url'], provider_config['api_key'],
+                                         preset_models(provider_config['name']))
       return if models.nil?
 
       model = select_model(models, provider_config['model'])
@@ -148,14 +161,14 @@ module CommitGpt
       return if api_key.nil? # User cancelled
 
       # Fetch models with timeout
-      models = fetch_models_with_timeout(base_url, api_key)
+      models = fetch_models_with_timeout(base_url, api_key, preset_models(provider_name))
       return if models.nil?
 
       # Let user select model
       model = select_model(models, existing_provider&.dig('model'))
 
       # Prompt for diff length
-      diff_len = prompt_diff_len(existing_provider&.dig('diff_len') || 32_768)
+      diff_len = prompt_diff_len(default_diff_len(provider_name, model, existing_provider&.dig('diff_len')))
 
       # Save configuration
       ConfigManager.update_provider(
@@ -181,14 +194,14 @@ module CommitGpt
         q.default 'http://localhost:8080/v1'
       end
 
-      api_key = @prompt.mask('Enter your API key (optional):') { |q| q.echo false }
+      api_key = @prompt.mask('Enter your API key (optional):') { |q| q.echo false }.to_s
 
       # Fetch models
       models = fetch_models_with_timeout(base_url, api_key)
       return if models.nil?
 
       model = select_model(models)
-      diff_len = prompt_diff_len(32_768)
+      diff_len = prompt_diff_len(FALLBACK_DIFF_LEN)
 
       # Add to presets dynamically (just for this session)
       # Save to config
@@ -230,20 +243,19 @@ module CommitGpt
 
     # Prompt for API key
     def prompt_api_key(_provider_name, existing_key)
-      message = if existing_key && !existing_key.empty?
+      has_existing = existing_key && !existing_key.empty?
+
+      message = if has_existing
                   'Enter your API key (press Enter to keep existing):'
                 else
                   'Enter your API key:'
                 end
 
-      key = @prompt.mask(message) { |q| q.echo false }
+      # mask returns nil, not '', when the input is empty
+      key = @prompt.mask(message) { |q| q.echo false }.to_s
 
       # If user pressed Enter and there's an existing key, use it
-      if key.empty? && existing_key && !existing_key.empty?
-        existing_key
-      else
-        key
-      end
+      key.empty? && has_existing ? existing_key : key
     end
 
     # Ask how long to wait when fetching the model list, and persist it
@@ -262,12 +274,56 @@ module CommitGpt
       seconds
     end
 
-    # Fetch models from provider with timeout
-    def fetch_models_with_timeout(base_url, api_key)
+    # Built-in models a preset declares, as { model => context tokens }
+    def preset_model_table(provider_name)
+      models = PROVIDER_PRESETS.find { |p| p[:value] == provider_name }&.dig(:models)
+      models unless models.nil? || models.empty?
+    end
+
+    # Built-in model list for a preset, if it declares one
+    def preset_models(provider_name)
+      preset_model_table(provider_name)&.keys
+    end
+
+    # Context window of a built-in model, in tokens
+    def model_context_tokens(provider_name, model)
+      preset_model_table(provider_name)&.dig(model)
+    end
+
+    # Default diff length for a model, derived from its context window when
+    # known, and reported so the number is not a mystery. Numbers are printed
+    # undelimited because they get typed straight into the next prompt.
+    def default_diff_len(provider_name, model, existing)
+      context_tokens = model_context_tokens(provider_name, model)
+      return existing || FALLBACK_DIFF_LEN if context_tokens.nil?
+
+      fits = context_tokens * DIFF_BYTES_PER_TOKEN
+      suggested = [fits, MAX_SUGGESTED_DIFF_LEN].min
+      capped = ' (capped; larger diffs use chunked mode)' if suggested < fits
+
+      puts "\n#{model} context window: #{context_tokens} tokens (~#{fits} bytes of diff)".gray
+      puts "  Suggested max diff length: #{suggested} bytes#{capped}".gray
+
+      # Only a value the user actually chose outranks the suggestion
+      customized = existing && existing != FALLBACK_DIFF_LEN
+      customized ? existing : suggested
+    end
+
+    # Fetch models from provider with timeout.
+    # A preset that declares :models has no usable /models endpoint, so its
+    # built-in list is offered directly and no request is made.
+    def fetch_models_with_timeout(base_url, api_key, builtin_models = nil)
+      if builtin_models
+        puts 'Using the built-in model list (this provider does not expose /models).'.gray
+        return builtin_models
+      end
+
       timeout = ConfigManager.get_model_fetch_timeout
       puts 'Fetching available models...'.gray
 
       models = nil
+      failure = nil
+
       begin
         Timeout.timeout(timeout) do
           headers = {
@@ -279,28 +335,23 @@ module CommitGpt
           response = HTTParty.get("#{base_url}/models", headers: headers)
 
           if response.code == 200
-            models = response['data'] || []
-            models = models.map { |m| m['id'] }.compact.sort
+            models = (response['data'] || []).map { |m| m['id'] }.compact.sort
           else
-            puts "✖ Failed to fetch models: HTTP #{response.code}".red
-            return nil
+            failure = "Failed to fetch models: HTTP #{response.code}"
           end
         end
       rescue Timeout::Error
-        puts "✖ Connection timeout (#{timeout}s). Please check your network, base_url, and api_key.".red
-        puts "  Run 'aicm setup' again to raise the timeout.".gray
-        exit(0)
+        failure = "Connection timeout (#{timeout}s). Please check your network, base_url, and api_key."
       rescue StandardError => e
-        puts "✖ Error fetching models: #{e.message}".red
-        exit(0)
+        failure = "Error fetching models: #{e.message}"
       end
 
-      if models.nil? || models.empty?
-        puts '✖ No models found. Please check your configuration.'.red
-        exit(0)
-      end
+      failure ||= 'No models found. Please check your configuration.' if models.nil? || models.empty?
+      return models if failure.nil?
 
-      models
+      puts "✖ #{failure}".red
+      puts "  Run 'aicm setup' again to raise the timeout.".gray if failure.start_with?('Connection timeout')
+      exit(0)
     end
 
     # Let user select a model
@@ -328,7 +379,7 @@ module CommitGpt
     end
 
     # Prompt for diff length
-    def prompt_diff_len(default = 32_768)
+    def prompt_diff_len(default = FALLBACK_DIFF_LEN)
       answer = @prompt.ask('Set the maximum diff length (Bytes) for generating commit message:') do |q|
         q.default default.to_s
         q.convert :int

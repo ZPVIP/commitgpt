@@ -261,12 +261,16 @@ Get an API key at [https://developer.amd.com.cn/radeon/tokenfactory](https://dev
 
 > **Note**: Registration requires **both an email address and a Chinese (+86) mobile phone number**. Without a Chinese phone number you cannot complete sign-up, so this provider is only usable if you have one.
 
+> **Note**: The gateway in front of this endpoint always answers `GET /models` with 403, so models cannot be discovered automatically. CommitGPT ships the list below and offers it directly during setup — no detection request is made for this provider.
+
 ```
-DeepSeek-V4-Flash
-Qwen3.6-35B-A3B
-MiniCPM5-1B
-MiniCPM-V46
+DeepSeek-V4-Flash    # Max Context Length: 1,000,000 tokens
+Qwen3.6-35B-A3B      # Max Context Length:   262,144 tokens
+MiniCPM-V46          # Max Context Length:   262,144 tokens
+MiniCPM5-1B          # Max Context Length:   131,072 tokens
 ```
+
+Setup reports the selected model's context window and suggests a matching `diff_len`, so you don't have to work the number out yourself.
 
 ## How It Works
 This CLI tool runs a `git diff` command to grab all staged changes, sends this to OpenAI's GPT API (or compatible endpoint), and returns an AI-generated commit message. The tool uses the `/v1/chat/completions` endpoint with optimized prompts/system instructions for generating conventional commit messages.

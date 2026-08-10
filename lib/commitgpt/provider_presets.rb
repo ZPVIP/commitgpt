@@ -3,7 +3,16 @@
 module CommitGpt
   # Provider presets for common AI providers
   PROVIDER_PRESETS = [
-    { label: 'AMD Radeon (China)', value: 'amd', base_url: 'https://developer.amd.com.cn/radeon/api/v1' },
+    # The Azure gateway in front of this endpoint always answers /models with 403,
+    # so the model list is built in and no request is made during setup.
+    # Each value is that model's context window in tokens.
+    { label: 'AMD Radeon (China)', value: 'amd', base_url: 'https://developer.amd.com.cn/radeon/api/v1',
+      models: {
+        'DeepSeek-V4-Flash' => 1_000_000,
+        'MiniCPM-V46' => 262_144,
+        'MiniCPM5-1B' => 131_072,
+        'Qwen3.6-35B-A3B' => 262_144
+      } },
     { label: 'Anthropic Claude', value: 'anthropic', base_url: 'https://api.anthropic.com/v1' },
     { label: 'Cerebras', value: 'cerebras', base_url: 'https://api.cerebras.ai/v1' },
     { label: 'DeepSeek', value: 'deepseek', base_url: 'https://api.deepseek.com' },

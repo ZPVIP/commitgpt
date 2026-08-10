@@ -1,5 +1,15 @@
 ## [Unreleased]
 
+## [0.3.10] - 2026-08-09
+
+### Added
+- Presets can declare a built-in model list, offered directly during setup with no detection request
+- Built-in model list for AMD Radeon (China), whose gateway always answers `/models` with 403
+- Presets can record each model's context window; setup reports it and suggests a matching `diff_len` instead of always defaulting to 32768
+
+### Fixed
+- Crash (`undefined method 'empty?' for nil`) when pressing Enter at the API key prompt to keep the existing key
+
 ## [0.3.9] - 2026-08-08
 
 ### Added
