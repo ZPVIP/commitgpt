@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+## [0.3.12] - 2026-08-09
+
+### Fixed
+- Models that stream their chain of thought inside `content` (as `<think>...</think>`, or with only the closing tag) no longer leak drafts and commentary into the commit message
+- A message the model wraps in a code fence is unwrapped instead of committed with the backticks
+- Raised the streaming cutoff so the real message is no longer truncated when inline reasoning precedes it
+
+### Changed
+- The detailed prompt now carries a worked example and forbids thinking out loud, drafting, and trailing commentary
+- Requests also send `chat_template_kwargs: {enable_thinking: false}` alongside `disable_reasoning`, which SGLang/vLLM back ends honour; a provider that rejects it still falls back through the existing `can_disable_reasoning` retry
+
 ## [0.3.11] - 2026-08-09
 
 ### Added

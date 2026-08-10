@@ -25,6 +25,26 @@ module CommitGpt
       'gitmoji' => ':emoji: <commit message>'
     }.freeze
 
+    # Worked example of the detailed shape. Models follow a sample far more
+    # reliably than a description of one.
+    DETAILED_EXAMPLE = <<~EXAMPLE
+      Here is an example of the expected output, showing the exact shape only.
+      Your subject line must still follow the format above:
+
+      feat(dfb): store and expand DFB event and speed logs
+
+      Persist DFB device logs ingested from the proactive evt (event log) and
+      lge (speed stats) topics, one record per message.
+
+      - Add dfb_event_logs and dfb_speed_stats tables and models, each with an
+        idempotent unique index so re-delivery and overlapping backfills are safe.
+      - Add the canonical event-code table and the loader that expands a device
+        event byte into a human label and tags; unknown codes fall back to
+        "Unknown Event".
+      - Associate both log tables on Product.
+      - Update README_DFB.md to document the new cloud tables.
+    EXAMPLE
+
     # Conventional commit types based on aicommits implementation
     CONVENTIONAL_TYPES = {
       'docs' => 'Documentation only changes',
@@ -141,13 +161,25 @@ module CommitGpt
       @commit_detail == 'detailed'
     end
 
-    # Streaming cutoff and completion budget, both of which have to grow to fit a body
+    # Streaming cutoff. Generous because models that ignore disable_reasoning
+    # spend it on inline <think> text before the message itself arrives.
     def max_content_chars
-      detailed? ? 2000 : 300
+      detailed? ? 6000 : 1500
     end
 
     def reasoning_disabled_max_tokens
-      detailed? ? 1000 : 300
+      detailed? ? 1200 : 300
+    end
+
+    # Some models stream their chain of thought inside content instead of the
+    # reasoning_content field, either wrapped in <think>...</think> or with only
+    # the closing tag when the chat template pre-fills the opener. Keep what
+    # comes after the thinking, never the thinking itself.
+    def strip_reasoning(content)
+      text = content.gsub(%r{<think(?:ing)?>.*?</think(?:ing)?>}m, '')
+      text = text.rpartition(%r{</think(?:ing)?>}).last if text.match?(%r{</think(?:ing)?>})
+      # Opener with no closer: the model never came back from thinking
+      text.sub(/<think(?:ing)?>.*\z/m, '')
     end
 
     # Header printed before the streamed message starts arriving
@@ -166,15 +198,24 @@ module CommitGpt
       editor.empty? ? 'your editor' : editor
     end
 
+    # Models like to wrap the whole message in a fence despite being told not to
+    def strip_code_fence(text)
+      return text unless text.start_with?('```')
+
+      text.sub(/\A```[a-zA-Z]*\n?/, '').sub(/\n?```\s*\z/, '')
+    end
+
     # Trim the model output down to what git should receive
     def finalize_message(full_content)
+      content = strip_reasoning(full_content)
+
       unless detailed?
         # Take only the first non-empty line to avoid repetition or multi-line garbage
-        first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
+        first_line = content.split("\n").map(&:strip).reject(&:empty?).first
         return first_line&.gsub(/\A["']|["']\z/, '') || ''
       end
 
-      body = full_content.strip.gsub(/\A["']|["']\z/, '').strip
+      body = strip_code_fence(content.strip).gsub(/\A["']|["']\z/, '').strip
       # Keep the subject/body/bullets structure but drop trailing spaces and
       # collapse the extra blank lines models like to emit between sections
       body.split("\n").map(&:rstrip).join("\n").gsub(/\n{3,}/, "\n\n")
@@ -341,7 +382,7 @@ module CommitGpt
                            end
 
       format_spec = if detailed?
-                      "The subject line must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
+                      "The subject line must be in format:\n#{COMMIT_FORMATS[@commit_format]}\n\n#{DETAILED_EXAMPLE}"
                     else
                       "The output response must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
                     end
@@ -352,8 +393,12 @@ module CommitGpt
                   '- Then one blank line, then a body paragraph of 1-3 sentences explaining what changed and why.',
                   '- Then one blank line, then a bullet list where each bullet starts with "- " and describes one notable change.',
                   '- Wrap body and bullet text at 72 characters.',
+                  '- Cover the whole diff in 3-6 bullets. Group related files into one bullet instead of listing every file.',
                   '- Be specific: include concrete details (file, table, method, package names) rather than generic statements.',
                   '- Do not use markdown headings, bold, or code fences. Plain text only.',
+                  '- Write the message directly. Do not think out loud, do not draft and revise, do not explain your reasoning, do not mention the diff or these instructions.',
+                  '- Do not emit <think> tags or any text before the subject line.',
+                  '- Stop immediately after the last bullet. Do not add a summary, a closing remark, or a second version of the message.',
                   '- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.',
                   '- Return ONLY the commit message, nothing else. No explanations, no introductions, no surrounding quotes.'
                 ]
@@ -402,6 +447,8 @@ module CommitGpt
 
       if can_disable_reasoning
         payload[:disable_reasoning] = true
+        # SGLang/vLLM back ends honour this where disable_reasoning is ignored
+        payload[:chat_template_kwargs] = { enable_thinking: false }
         payload[:max_tokens] = reasoning_disabled_max_tokens
       else
         payload[:max_tokens] = configured_max_tokens
@@ -450,7 +497,7 @@ module CommitGpt
               error_msg += " Raw: #{error_body}" unless error_body.to_s.strip.empty?
             end
 
-            if can_disable_reasoning && (error_msg =~ /parameter|reasoning|unsupported/i || response.code == '400')
+            if can_disable_reasoning && (error_msg =~ /parameter|reasoning|template|unsupported/i || response.code == '400')
                puts "⚠ Provider does not support 'disable_reasoning'. Updating config and retrying...".yellow
                ConfigManager.update_provider(provider_config['name'], { 'can_disable_reasoning' => false })
                @is_retrying = true
@@ -644,6 +691,8 @@ module CommitGpt
 
       if can_disable_reasoning
         payload[:disable_reasoning] = true
+        # SGLang/vLLM back ends honour this where disable_reasoning is ignored
+        payload[:chat_template_kwargs] = { enable_thinking: false }
         payload[:max_tokens] = reasoning_disabled_max_tokens
       else
         payload[:max_tokens] = provider_config['max_tokens'] || 2000
