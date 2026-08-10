@@ -1,5 +1,15 @@
 ## [Unreleased]
 
+### Added
+- Commit message detail level, chosen with `aicm -d` / `aicm --detail` and stored as `commit_detail` in `config.yml`: `concise` keeps the current subject-only message, `detailed` adds an explanatory paragraph and a bullet list of notable changes
+- `aicm --help` shows the configured detail level
+
+### Changed
+- The `Edit` action now opens the generated message in your editor via `git commit -e`, honouring `GIT_EDITOR`/`core.editor`/`VISUAL`/`EDITOR`, instead of asking for a single line of input
+
+### Fixed
+- `git commit` no longer goes through the shell, so a message containing backticks, quotes or `$` is committed verbatim instead of being expanded or truncated
+
 ## [0.3.10] - 2026-08-09
 
 ### Added

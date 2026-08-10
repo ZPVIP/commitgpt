@@ -197,8 +197,41 @@ docs: update API documentation
 📝 update API documentation
 ```
 
+### Choose Commit Message Detail Level
+Select how much the commit message says:
+```bash
+$ aicm -d
+# or
+$ aicm --detail
+```
+
+- **Concise** - Subject line only (default)
+- **Detailed** - Subject line, an explanatory paragraph, and a bullet list of notable changes
+
+This is independent of the format above: the format decides how the subject line is written, the detail level decides how much follows it. Your selection is saved as `commit_detail` in `~/.config/commitgpt/config.yml`.
+
+#### Detail Examples
+
+**Concise:**
+```
+feat(dfb): store and expand DFB event and speed logs
+```
+
+**Detailed:**
+```
+feat(dfb): store and expand DFB event and speed logs
+
+Persist DFB device logs ingested from the proactive `evt` (event log) and
+`lge` (speed stats) topics, one record per message.
+
+- Add `dfb_event_logs` and `dfb_speed_stats` tables and models, each with an
+  idempotent unique index so re-delivery and overlapping backfills are safe.
+- Associate both log tables on `Product`.
+- Update `README_DFB.md` to document the cloud tables.
+```
+
 ### Check Configuration
-View your current configuration (Provider, Model, Format, Base URL, Diff Len):
+View your current configuration (Provider, Model, Format, Detail, Base URL, Diff Len):
 ```bash
 $ aicm help
 ```

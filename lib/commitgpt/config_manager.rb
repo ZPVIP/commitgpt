@@ -11,6 +11,11 @@ module CommitGpt
     # Seconds to wait when fetching a provider's model list
     DEFAULT_MODEL_FETCH_TIMEOUT = 30
 
+    # How much the commit message says: a subject line only, or a subject
+    # followed by an explanatory body
+    COMMIT_DETAILS = %w[concise detailed].freeze
+    DEFAULT_COMMIT_DETAIL = 'concise'
+
     class << self
       # Get the config directory path
       def config_dir
@@ -165,6 +170,23 @@ module CommitGpt
         ensure_config_dir
         main_config = config_exists? ? YAML.load_file(main_config_path) : { 'providers' => [], 'active_provider' => '' }
         main_config['commit_format'] = format
+        save_main_config(main_config)
+      end
+
+      # Get commit detail level ('concise' or 'detailed')
+      def get_commit_detail
+        return DEFAULT_COMMIT_DETAIL unless config_exists?
+
+        main_config = YAML.load_file(main_config_path)
+        detail = main_config['commit_detail']
+        COMMIT_DETAILS.include?(detail) ? detail : DEFAULT_COMMIT_DETAIL
+      end
+
+      # Set commit detail level
+      def set_commit_detail(detail)
+        ensure_config_dir
+        main_config = config_exists? ? YAML.load_file(main_config_path) : { 'providers' => [], 'active_provider' => '' }
+        main_config['commit_detail'] = detail
         save_main_config(main_config)
       end
 

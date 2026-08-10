@@ -133,6 +133,51 @@ module CommitGpt
       end
 
       @commit_format = ConfigManager.get_commit_format
+      @commit_detail = ConfigManager.get_commit_detail
+    end
+
+    # True when the message should carry a body, not just a subject line
+    def detailed?
+      @commit_detail == 'detailed'
+    end
+
+    # Streaming cutoff and completion budget, both of which have to grow to fit a body
+    def max_content_chars
+      detailed? ? 2000 : 300
+    end
+
+    def reasoning_disabled_max_tokens
+      detailed? ? 1000 : 300
+    end
+
+    # Header printed before the streamed message starts arriving
+    def content_prefix
+      detailed? ? "✦ Commit message:\n" : '✦ Commit message: git commit -am "'
+    end
+
+    # Closing quote that matches content_prefix; a body has no quote to close
+    def content_suffix
+      detailed? ? '' : '"'
+    end
+
+    # Editor git will actually use, resolved through its own precedence chain
+    def git_editor
+      editor = `git var GIT_EDITOR 2>/dev/null`.strip
+      editor.empty? ? 'your editor' : editor
+    end
+
+    # Trim the model output down to what git should receive
+    def finalize_message(full_content)
+      unless detailed?
+        # Take only the first non-empty line to avoid repetition or multi-line garbage
+        first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
+        return first_line&.gsub(/\A["']|["']\z/, '') || ''
+      end
+
+      body = full_content.strip.gsub(/\A["']|["']\z/, '').strip
+      # Keep the subject/body/bullets structure but drop trailing spaces and
+      # collapse the extra blank lines models like to emit between sections
+      body.split("\n").map(&:rstrip).join("\n").gsub(/\n{3,}/, "\n\n")
     end
 
     def aicm(verbose: false)
@@ -150,9 +195,10 @@ module CommitGpt
 
         case action
         when :commit
-          commit_command = "git commit -m \"#{ai_commit_message}\""
-          puts "\n→ Executing: #{commit_command}".yellow
-          system(commit_command)
+          # Pass argv directly: a body with quotes, backticks or newlines must
+          # not be re-interpreted by the shell
+          puts "\n→ Executing: git commit -m <message>".yellow
+          system('git', 'commit', '-m', ai_commit_message)
           puts "\n\n"
           puts `git log -1`
           break
@@ -160,15 +206,15 @@ module CommitGpt
           puts "\n"
           next
         when :edit
-          prompt = TTY::Prompt.new
-          new_message = prompt.ask('Enter your commit message:')
-          if new_message && !new_message.strip.empty?
-             commit_command = "git commit -m \"#{new_message}\""
-             system(commit_command)
-             puts "\n"
-             puts `git log -1`
+          # Let git open the message in the user's editor: it honours the
+          # GIT_EDITOR/core.editor/VISUAL/EDITOR chain, handles multi-line
+          # bodies, and aborts by itself if the message is left empty
+          puts "\n→ Opening #{git_editor} with the generated message...".yellow
+          if system('git', 'commit', '-e', '-m', ai_commit_message)
+            puts "\n"
+            puts `git log -1`
           else
-             puts '✖ Commit aborted (empty message).'.red
+            puts '✖ Commit aborted.'.red
           end
           break
         when :exit
@@ -219,7 +265,7 @@ module CommitGpt
         prompt.select('Action:') do |menu|
           menu.choice 'Commit', :commit
           menu.choice 'Regenerate', :regenerate
-          menu.choice 'Edit', :edit
+          menu.choice 'Edit in editor', :edit
           menu.choice 'Exit without commit', :exit
         end
       rescue TTY::Reader::InputInterrupt, Interrupt
@@ -279,7 +325,11 @@ module CommitGpt
     # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
     def generate_commit(diff = '', chunk_label: nil)
       # Build format-specific prompt
-      base_prompt = 'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body.'
+      base_prompt = if detailed?
+                      'Generate a git commit message in present tense that precisely describes the key changes in the following code diff. Focus on what was changed and why, not just file names.'
+                    else
+                      'Generate a concise git commit message title in present tense that precisely describes the key changes in the following code diff. Focus on what was changed, not just file names. Provide only the title, no description or body.'
+                    end
 
       format_instruction = case @commit_format
                            when 'conventional'
@@ -290,17 +340,38 @@ module CommitGpt
                              ''
                            end
 
-      format_spec = "The output response must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
+      format_spec = if detailed?
+                      "The subject line must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
+                    else
+                      "The output response must be in format:\n#{COMMIT_FORMATS[@commit_format]}"
+                    end
+
+      rules = if detailed?
+                [
+                  '- The first line is the subject: a maximum of 100 characters, no trailing period.',
+                  '- Then one blank line, then a body paragraph of 1-3 sentences explaining what changed and why.',
+                  '- Then one blank line, then a bullet list where each bullet starts with "- " and describes one notable change.',
+                  '- Wrap body and bullet text at 72 characters.',
+                  '- Be specific: include concrete details (file, table, method, package names) rather than generic statements.',
+                  '- Do not use markdown headings, bold, or code fences. Plain text only.',
+                  '- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.',
+                  '- Return ONLY the commit message, nothing else. No explanations, no introductions, no surrounding quotes.'
+                ]
+              else
+                [
+                  '- Commit message must be a maximum of 100 characters.',
+                  '- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.',
+                  '- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text.',
+                  '- Be specific: include concrete details (package names, versions, functionality) rather than generic statements.',
+                  '- Return ONLY the commit message, nothing else.'
+                ]
+              end
 
       system_content = [
         base_prompt,
         'Message language: English.',
         'Rules:',
-        '- Commit message must be a maximum of 100 characters.',
-        '- Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.',
-        '- IMPORTANT: Do not include any explanations, introductions, or additional text. Do not wrap the commit message in quotes or any other formatting. The commit message must not exceed 100 characters. Respond with ONLY the commit message text.',
-        '- Be specific: include concrete details (package names, versions, functionality) rather than generic statements.',
-        '- Return ONLY the commit message, nothing else.',
+        *rules,
         format_instruction,
         format_spec
       ].reject(&:empty?).join("\n")
@@ -331,7 +402,7 @@ module CommitGpt
 
       if can_disable_reasoning
         payload[:disable_reasoning] = true
-        payload[:max_tokens] = 300
+        payload[:max_tokens] = reasoning_disabled_max_tokens
       else
         payload[:max_tokens] = configured_max_tokens
       end
@@ -430,13 +501,13 @@ module CommitGpt
                     if chunk_label
                       print "◆ #{chunk_label}: ".magenta
                     else
-                      print '✦ Commit message: git commit -am "'.green
+                      print content_prefix.green
                     end
                     printed_content_prefix = true
                   end
 
                   # Prevent infinite loops/repetitive garbage
-                  if full_content.length + content_chunk.length > 300
+                  if full_content.length + content_chunk.length > max_content_chars
                     stop_stream = true
                     break
                   end
@@ -460,7 +531,7 @@ module CommitGpt
       end
 
       # Close the quote
-      puts(chunk_label ? '' : '"'.green) if printed_content_prefix
+      puts(chunk_label ? '' : content_suffix.green) if printed_content_prefix
 
       # Post-processing Logic (Retry if empty content)
       if (full_content.nil? || full_content.strip.empty?) && (full_reasoning && !full_reasoning.strip.empty?)
@@ -511,9 +582,7 @@ module CommitGpt
       # Reset retrying flag
       @is_retrying = false
 
-      # Take only the first non-empty line to avoid repetition or multi-line garbage
-      first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
-      first_line&.gsub(/\A["']|["']\z/, '') || ''
+      finalize_message(full_content)
     end
     # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
 
@@ -530,14 +599,31 @@ module CommitGpt
                              ''
                            end
 
+      rules = if detailed?
+                [
+                  '- The first line is the subject: a maximum of 100 characters, no trailing period.',
+                  '- Then one blank line, then a body paragraph of 1-3 sentences explaining what changed and why.',
+                  '- Then one blank line, then a bullet list where each bullet starts with "- " and describes one notable change.',
+                  '- Wrap body and bullet text at 72 characters.',
+                  '- Present tense.',
+                  '- Be specific: include concrete details rather than generic statements.',
+                  '- Do not use markdown headings, bold, or code fences. Plain text only.',
+                  '- Return ONLY the commit message, nothing else. No quotes, no explanations.'
+                ]
+              else
+                [
+                  '- Maximum 100 characters.',
+                  '- Present tense.',
+                  '- Be specific: include concrete details rather than generic statements.',
+                  '- Return ONLY the commit message, nothing else. No quotes, no explanations.'
+                ]
+              end
+
       system_content = [
         'You are given multiple commit messages generated from different segments of a single large git diff.',
-        'Synthesize them into ONE concise, unified git commit message that captures the overall change.',
+        "Synthesize them into ONE unified git commit message that captures the overall change.#{' Keep it concise.' unless detailed?}",
         'Rules:',
-        '- Maximum 100 characters.',
-        '- Present tense.',
-        '- Be specific: include concrete details rather than generic statements.',
-        '- Return ONLY the commit message, nothing else. No quotes, no explanations.',
+        *rules,
         format_instruction
       ].reject(&:empty?).join("\n")
 
@@ -558,7 +644,7 @@ module CommitGpt
 
       if can_disable_reasoning
         payload[:disable_reasoning] = true
-        payload[:max_tokens] = 300
+        payload[:max_tokens] = reasoning_disabled_max_tokens
       else
         payload[:max_tokens] = provider_config['max_tokens'] || 2000
       end
@@ -606,11 +692,11 @@ module CommitGpt
                 content_chunk = delta['content']
                 if content_chunk && !content_chunk.empty?
                   unless printed_content_prefix
-                    print "\n✦ Commit message: git commit -am \"".green
+                    print "\n#{content_prefix}".green
                     printed_content_prefix = true
                   end
 
-                  if full_content.length + content_chunk.length > 300
+                  if full_content.length + content_chunk.length > max_content_chars
                     stop_stream = true
                     break
                   end
@@ -630,15 +716,14 @@ module CommitGpt
         return nil
       end
 
-      puts '"'.green if printed_content_prefix
+      puts content_suffix.green if printed_content_prefix
 
       if full_content.strip.empty?
         puts '✖ No response from AI during synthesis.'.red
         return nil
       end
 
-      first_line = full_content.split("\n").map(&:strip).reject(&:empty?).first
-      first_line&.gsub(/\A["']|["']\z/, '') || ''
+      finalize_message(full_content)
     end
   end
 end

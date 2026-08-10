@@ -116,7 +116,25 @@ module CommitGpt
       puts "\n✔ Commit format set to: #{format}".green
     end
 
+    # Choose how much the commit message says
+    def choose_detail
+      puts "\n→ Choose git commit message detail level:\n".green
+
+      detail = @prompt.select('Select detail level:', default: default_detail_index) do |menu|
+        menu.choice 'Concise - Subject line only', 'concise'
+        menu.choice 'Detailed - Subject line, explanatory paragraph, and bullet list of changes', 'detailed'
+      end
+
+      ConfigManager.set_commit_detail(detail)
+      puts "\n✔ Commit detail set to: #{detail}".green
+    end
+
     private
+
+    # Menu position of the currently configured detail level (1-based)
+    def default_detail_index
+      ConfigManager::COMMIT_DETAILS.index(ConfigManager.get_commit_detail).to_i + 1
+    end
 
     # Select provider from list
     def select_provider

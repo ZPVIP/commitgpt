@@ -14,6 +14,7 @@ module CommitGpt
     method_option :verbose, aliases: '-v', type: :boolean, desc: 'Show git diff being sent to AI'
     method_option :provider, aliases: '-p', type: :boolean, desc: 'Switch active provider'
     method_option :format, aliases: '-f', type: :boolean, desc: 'Choose commit message format'
+    method_option :detail, aliases: '-d', type: :boolean, desc: 'Choose commit message detail level'
     def generate
       if options[:provider]
         CommitGpt::SetupWizard.new.switch_provider
@@ -21,6 +22,8 @@ module CommitGpt
         CommitGpt::SetupWizard.new.change_model
       elsif options[:format]
         CommitGpt::SetupWizard.new.choose_format
+      elsif options[:detail]
+        CommitGpt::SetupWizard.new.choose_detail
       else
         CommitGpt::CommitAi.new.aicm(verbose: options[:verbose])
       end
@@ -42,6 +45,7 @@ module CommitGpt
       shell.say '  -m, --models             # Interactive model selection'
       shell.say '  -p, --provider           # Switch active provider'
       shell.say '  -f, --format             # Choose commit message format'
+      shell.say '  -d, --detail             # Choose commit message detail level'
       shell.say '  -v, --verbose            # Show git diff being sent to AI'
       shell.say ''
 
@@ -61,6 +65,7 @@ module CommitGpt
           shell.say "  Provider:  #{config['name'].green}"
           shell.say "  Model:     #{config['model'].cyan}"
           shell.say "  Format:    #{format.capitalize.yellow}"
+          shell.say "  Detail:    #{CommitGpt::ConfigManager.get_commit_detail.capitalize.yellow}"
           shell.say "  Base URL:  #{config['base_url']}"
           shell.say "  Diff Len:  #{config['diff_len']}"
           shell.say "  Timeout:   #{CommitGpt::ConfigManager.get_model_fetch_timeout}s"
